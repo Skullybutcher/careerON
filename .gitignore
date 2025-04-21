@@ -1,0 +1,7 @@
+venv
+.env
+.conda
+__pycache__/
+__pycache__/config.cpython-38.pyc
+frontend
+templates/traffic_analysis.mov
