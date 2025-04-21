@@ -11,8 +11,10 @@ def create_app():
     from api.limiter import init_app
     init_app(app)
     
-    # Enable CORS
-    CORS(app)
+    # Enable CORS with explicit configuration to allow frontend origin and methods
+    CORS(app, origins=["http://localhost:8080"], supports_credentials=True, 
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     
     # Register blueprints
     app.register_blueprint(api, url_prefix='/api')
