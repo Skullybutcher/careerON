@@ -247,41 +247,45 @@ resume_parser = ResumeParser()
 resume_optimizer = ResumeOptimizer()
 resume_generator = ResumeGenerator()
 
-# User routes
-@api.route("/login", methods=["POST"])
-@limiter.limit("5 per minute")
-def login():
-    data = request.json
-    
-    # Validate input
+@api.route("/resumes/<resume_id>/optimize", methods=["POST", "OPTIONS"])
+def optimize_resume(resume_id):
+    from flask import make_response
+    import traceback
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        response = make_response('', 204)
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+
     try:
-        login_data = UserLogin(**data)
+        db = next(get_db())
+        resume_obj = db.query(Resume).filter(Resume.id == resume_id).first()
+        if not resume_obj:
+            response = make_response(jsonify({"error": "Resume not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+            return response
+
+        # Convert resume_obj to dict for optimizer
+        from api.schemas import ResumeResponse
+        resume_data = ResumeResponse.from_orm(resume_obj).dict()
+
+        # Get job description from request JSON
+        job_description = request.json.get("job_description", "")
+
+        # Use ResumeOptimizer service to optimize the resume for the job description
+        optimization_result = resume_optimizer.optimize_for_job(resume_data, job_description)
+
+        response = make_response(jsonify(optimization_result), 200)
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        return response
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    
-    db = next(get_db())
-    
-    # Find user by email
-    user = db.query(User).filter(User.email == login_data.email).first()
-    if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
-    
-    # Verify password
-    if not check_password_hash(user.password, login_data.password):
-        return jsonify({"error": "Invalid credentials"}), 401
-    
-    # Create JWT token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email},
-        expires_delta=access_token_expires
-    )
-    
-    return jsonify({
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": UserResponse.from_orm(user).dict()
-    })
+        current_app.logger.error(f"Error optimizing resume {resume_id}: {str(e)}")
+        current_app.logger.error(traceback.format_exc())
+        response = make_response(jsonify({"error": "Internal server error"}), 500)
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        return response
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -398,26 +402,38 @@ def create_resume():
     
     return jsonify(ResumeResponse.from_orm(resume).dict()), 201
 
-@api.route("/resumes/<resume_id>", methods=["GET"])
-def get_resume(resume_id):
-    try:
-        db = next(get_db())
-        resume = db.query(Resume).filter(Resume.id == resume_id).first()
-        if not resume:
-            return jsonify({"error": "Resume not found"}), 404
-        
-        from api.schemas import ResumeResponse, PersonalInfoSchema
+@api.route("/resumes/<resume_id>", methods=["GET", "DELETE"])
+def get_or_delete_resume(resume_id):
+    db = next(get_db())
+    if request.method == "GET":
         try:
-            if resume.personal_info:
-                resume.personal_info = PersonalInfoSchema.from_orm(resume.personal_info)
+            resume = db.query(Resume).filter(Resume.id == resume_id).first()
+            if not resume:
+                return jsonify({"error": "Resume not found"}), 404
+            
+            from api.schemas import ResumeResponse, PersonalInfoSchema
+            try:
+                if resume.personal_info:
+                    resume.personal_info = PersonalInfoSchema.from_orm(resume.personal_info)
+            except Exception as e:
+                current_app.logger.error(f"Error serializing personal_info for resume {resume.id}: {str(e)}")
+                resume.personal_info = None
+            
+            return jsonify(ResumeResponse.from_orm(resume).dict()), 200
         except Exception as e:
-            current_app.logger.error(f"Error serializing personal_info for resume {resume.id}: {str(e)}")
-            resume.personal_info = None
-        
-        return jsonify(ResumeResponse.from_orm(resume).dict()), 200
-    except Exception as e:
-        current_app.logger.error(f"Error fetching resume {resume_id}: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+            current_app.logger.error(f"Error fetching resume {resume_id}: {str(e)}")
+            return jsonify({"error": "Internal server error"}), 500
+    elif request.method == "DELETE":
+        try:
+            resume = db.query(Resume).filter(Resume.id == resume_id).first()
+            if not resume:
+                return jsonify({"error": "Resume not found"}), 404
+            db.delete(resume)
+            db.commit()
+            return jsonify({"message": "Resume deleted successfully"}), 200
+        except Exception as e:
+            current_app.logger.error(f"Error deleting resume {resume_id}: {str(e)}")
+            return jsonify({"error": "Internal server error"}), 500
 
 @api.route("/users/<user_id>/resumes", methods=["GET"])
 def get_user_resumes(user_id):
