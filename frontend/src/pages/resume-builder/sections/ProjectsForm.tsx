@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { resumeSectionService } from '@/services/api';
-import { Project } from '@/types';
+import { resumeSectionService } from '../../../services/api';
+import { Project } from '../../../types';
 import {
   Form,
   FormControl,
@@ -12,12 +11,12 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+} from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
+import { useToast } from '../../../components/ui/use-toast';
 import { Plus, Save, Trash, Edit } from 'lucide-react';
 
 const projectSchema = z.object({
@@ -58,25 +57,22 @@ export function ProjectsForm({ resumeId }: ProjectsFormProps) {
   useEffect(() => {
     const fetchProjects = async () => {
       if (!resumeId) return;
-      
+
       try {
         setIsLoading(true);
-        const response = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/projects`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            setProjects(data);
-          } else {
-            setProjects([]);
-          }
+        const data = await resumeSectionService.getSection(resumeId, 'projects');
+        if (Array.isArray(data)) {
+          setProjects(data);
+        } else {
+          setProjects([]);
         }
       } catch (error) {
         console.error('Error fetching projects:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch projects',
+          variant: 'destructive',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -87,36 +83,33 @@ export function ProjectsForm({ resumeId }: ProjectsFormProps) {
 
   const onSubmit = async (data: ProjectFormValues) => {
     if (!resumeId) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       const updatedProjects = [...projects];
-      
-      // Ensure data has all the required properties for Project type
+
       const projectData: Project = {
         title: data.title,
         description: data.description,
         technologies: data.technologies,
         start_date: data.start_date,
         end_date: data.end_date,
-        url: data.url
+        url: data.url,
       };
-      
+
       if (editingIndex !== null) {
-        // Update existing project
         updatedProjects[editingIndex] = projectData;
       } else {
-        // Add new project
         updatedProjects.push(projectData);
       }
-      
+
       await resumeSectionService.updateSection(resumeId, 'projects', updatedProjects);
-      
+
       setProjects(updatedProjects);
       setEditingIndex(null);
       setIsAdding(false);
-      
+
       form.reset({
         title: '',
         description: '',
@@ -125,7 +118,7 @@ export function ProjectsForm({ resumeId }: ProjectsFormProps) {
         end_date: '',
         url: '',
       });
-      
+
       toast({
         title: 'Project saved',
         description: editingIndex !== null ? 'Project updated successfully' : 'New project added successfully',
@@ -158,17 +151,17 @@ export function ProjectsForm({ resumeId }: ProjectsFormProps) {
 
   const handleDelete = async (index: number) => {
     if (!resumeId) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       const updatedProjects = [...projects];
       updatedProjects.splice(index, 1);
-      
+
       await resumeSectionService.updateSection(resumeId, 'projects', updatedProjects);
-      
+
       setProjects(updatedProjects);
-      
+
       toast({
         title: 'Project deleted',
         description: 'Project removed successfully',

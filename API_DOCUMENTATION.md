@@ -32,7 +32,7 @@ Tokens are obtained by:
 2. Logging in via `POST /login`
 
 ## Base URL
-All endpoints are prefixed with: `https://api.careernavigator.example.com/api/v1`
+All endpoints are prefixed with: `https://localhost:5000/api`
 
 ## Versioning
 API version is included in the base URL. Breaking changes will increment the version number (v1 → v2).

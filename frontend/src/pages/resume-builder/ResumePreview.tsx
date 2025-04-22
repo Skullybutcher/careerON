@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
-import { resumeService, resumeSectionService } from '@/services/api';
-import { Resume, PersonalInfo, Summary, Education, Experience, Skill, Project } from '@/types';
+import { resumeService, resumeSectionService } from '../../services/api';
+import { Resume, PersonalInfo, Summary, Education, Experience, Skill, Project } from '../../types';
 
 interface ResumePreviewProps {
   resumeId: string | undefined;
@@ -17,123 +16,74 @@ export function ResumePreview({ resumeId }: ResumePreviewProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchResumeData = async () => {
-      if (!resumeId) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // Fetch resume details
-        const resumeData = await resumeService.getResumeDetails(resumeId);
-        setResume(resumeData);
-        
-        // Fetch sections
-        try {
-          const personalInfoResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/personal_info`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (personalInfoResponse.ok) {
-            const data = await personalInfoResponse.json();
-            setPersonalInfo(data);
-          }
-        } catch (error) {
-          console.error('Error fetching personal info:', error);
-        }
-        
-        try {
-          const summaryResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/summary`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (summaryResponse.ok) {
-            const data = await summaryResponse.json();
-            setSummary(data);
-          }
-        } catch (error) {
-          console.error('Error fetching summary:', error);
-        }
-        
-        try {
-          const educationResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/education`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (educationResponse.ok) {
-            const data = await educationResponse.json();
-            if (Array.isArray(data)) {
-              setEducation(data);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching education:', error);
-        }
-        
-        try {
-          const experienceResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/experience`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (experienceResponse.ok) {
-            const data = await experienceResponse.json();
-            if (Array.isArray(data)) {
-              setExperience(data);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching experience:', error);
-        }
-        
-        try {
-          const skillsResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/skills`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (skillsResponse.ok) {
-            const data = await skillsResponse.json();
-            if (Array.isArray(data)) {
-              setSkills(data);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching skills:', error);
-        }
-        
-        try {
-          const projectsResponse = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/projects`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (projectsResponse.ok) {
-            const data = await projectsResponse.json();
-            if (Array.isArray(data)) {
-              setProjects(data);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching projects:', error);
-        }
-        
-      } catch (error) {
-        console.error('Error fetching resume data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchResumeData = async () => {
+    if (!resumeId) return;
 
+    try {
+      setIsLoading(true);
+
+      // Fetch resume details
+      const resumeData = await resumeService.getResumeDetails(resumeId);
+      setResume(resumeData);
+
+      // Fetch sections
+      try {
+        const personalInfoData = await resumeSectionService.getSection(resumeId, 'personal_info');
+        setPersonalInfo(personalInfoData);
+      } catch (error) {
+        console.error('Error fetching personal info:', error);
+      }
+
+      try {
+        const summaryData = await resumeSectionService.getSection(resumeId, 'summary');
+        setSummary({ content: summaryData.summary });
+      } catch (error) {
+        console.error('Error fetching summary:', error);
+      }
+
+      try {
+        const educationData = await resumeSectionService.getSection(resumeId, 'education');
+        if (Array.isArray(educationData)) {
+          setEducation(educationData);
+        }
+      } catch (error) {
+        console.error('Error fetching education:', error);
+      }
+
+      try {
+        const experienceData = await resumeSectionService.getSection(resumeId, 'experience');
+        if (Array.isArray(experienceData)) {
+          setExperience(experienceData);
+        }
+      } catch (error) {
+        console.error('Error fetching experience:', error);
+      }
+
+      try {
+        const skillsData = await resumeSectionService.getSection(resumeId, 'skills');
+        if (Array.isArray(skillsData)) {
+          setSkills(skillsData);
+        }
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+      }
+
+      try {
+        const projectsData = await resumeSectionService.getSection(resumeId, 'projects');
+        if (Array.isArray(projectsData)) {
+          setProjects(projectsData);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    } catch (error) {
+      console.error('Error fetching resume data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchResumeData();
   }, [resumeId]);
 
@@ -302,12 +252,7 @@ export function ResumePreview({ resumeId }: ResumePreviewProps) {
                   <h3 className="text-lg font-semibold">
                     {project.title}
                     {project.url && (
-                      <a 
-                        href={project.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-sm text-brand-600 hover:underline ml-2"
-                      >
+                      <a href={project.url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-600 hover:underline ml-2">
                         (View Project)
                       </a>
                     )}
@@ -322,10 +267,7 @@ export function ResumePreview({ resumeId }: ResumePreviewProps) {
                 
                 <div className="flex flex-wrap gap-1 mt-2">
                   {project.technologies.map((tech, i) => (
-                    <span 
-                      key={i} 
-                      className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
-                    >
+                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
                       {tech}
                     </span>
                   ))}

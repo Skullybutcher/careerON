@@ -62,19 +62,11 @@ export function SkillsForm({ resumeId }: SkillsFormProps) {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/skills`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            setSkills(data);
-          } else {
-            setSkills([]);
-          }
+        const data = await resumeSectionService.getSection(resumeId, 'skills');
+        if (Array.isArray(data)) {
+          setSkills(data);
+        } else {
+          setSkills([]);
         }
       } catch (error) {
         console.error('Error fetching skills:', error);
@@ -361,7 +353,7 @@ export function SkillsForm({ resumeId }: SkillsFormProps) {
                           <span 
                             className={`text-xs px-2 py-1 rounded-full ${getProficiencyColor(skill.proficiency)}`}
                           >
-                            {skill.proficiency.charAt(0).toUpperCase() + skill.proficiency.slice(1)}
+                          {skill.proficiency ? skill.proficiency.charAt(0).toUpperCase() + skill.proficiency.slice(1) : ''}
                           </span>
                           {skill.years_of_experience !== undefined && (
                             <span className="text-xs text-gray-500 ml-2">

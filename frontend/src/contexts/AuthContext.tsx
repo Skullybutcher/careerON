@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/api';
 import { User } from '../types';
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // For now, we'll just use the stored userId
       if (authStatus) {
         const userId = localStorage.getItem('userId');
-        if (userId && userId !== 'undefined') {
+        if (userId) {
           setUser({ id: userId, name: '', email: '', created_at: '' });
         }
       }
@@ -52,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = await authService.login(email, password);
       setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('userId', userData.id);
       return userData;
     } catch (error) {
       console.error('Login error:', error);
@@ -63,9 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     try {
       const userData = await authService.register(name, email, password);
-      setUser(userData);
-      setIsAuthenticated(true);
-      localStorage.setItem('userId', userData.id);
       return userData;
     } catch (error) {
       console.error('Registration error:', error);
@@ -77,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authService.logout();
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('userId');
   };
 
   return (

@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { resumeSectionService } from '@/services/api';
-import { PersonalInfo } from '@/types';
+import { resumeSectionService } from '../../../services/api';
+import { PersonalInfo } from '../../../types';
 import {
   Form,
   FormControl,
@@ -12,10 +11,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+} from '../../../components/ui/form.tsx';
+import { Input } from '../../../components/ui/input.tsx';
+import { Button } from '../../../components/ui/button.tsx';
+import { useToast } from '../../../components/ui/use-toast.ts';
 import { Save } from 'lucide-react';
 
 const personalInfoSchema = z.object({
@@ -55,12 +54,12 @@ export function PersonalInfoForm({ resumeId }: PersonalInfoFormProps) {
   useEffect(() => {
     const fetchPersonalInfo = async () => {
       if (!resumeId) return;
-      
+
       try {
         setIsLoading(true);
         const data = await resumeSectionService.getSection(resumeId, 'personal_info');
         setInitialData(data);
-        
+
         // Set form values
         form.reset({
           full_name: data.full_name || '',

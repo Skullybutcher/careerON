@@ -1,15 +1,14 @@
-
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { resumeService } from '@/services/api';
-import { Resume } from '@/types';
-import { ResumeCard } from '@/components/resume/ResumeCard';
-import { CreateResumeDialog } from '@/components/resume/CreateResumeDialog';
-import { ResumeUploader } from '@/components/resume/ResumeUploader';
-import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '../contexts/AuthContext';
+import { resumeService } from '../services/api';
+import { Resume } from '../types';
+import { ResumeCard } from '../components/resume/ResumeCard';
+import { CreateResumeDialog } from '../components/resume/CreateResumeDialog';
+import { ResumeUploader } from '../components/resume/ResumeUploader';
+import { useToast } from '../components/ui/use-toast';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +17,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchResumes = async () => {
       if (!user?.id) return;
-      
+
       try {
         setIsLoading(true);
         const data = await resumeService.getUserResumes(user.id);
@@ -31,8 +30,10 @@ export default function Dashboard() {
       }
     };
 
-    fetchResumes();
-  }, [user]);
+    if (!loading) {
+      fetchResumes();
+    }
+  }, [user, loading]);
 
   const handleDeleteResume = (id: string) => {
     setResumes(prevResumes => prevResumes.filter(resume => resume.id !== id));

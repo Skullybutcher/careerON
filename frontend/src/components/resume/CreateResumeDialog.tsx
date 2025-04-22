@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuth } from '@/contexts/AuthContext';
-import { resumeService } from '@/services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { resumeService } from '../../services/api';
 import { 
   Dialog, 
   DialogContent, 
@@ -14,8 +13,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from '../ui/dialog';
+import { Button } from '../ui/button';
 import {
   Form,
   FormControl,
@@ -23,9 +22,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+} from '../ui/form';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Plus } from 'lucide-react';
 
 const createResumeSchema = z.object({
@@ -42,7 +41,7 @@ const createResumeSchema = z.object({
 type CreateResumeFormValues = z.infer<typeof createResumeSchema>;
 
 export function CreateResumeDialog() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,9 +55,10 @@ export function CreateResumeDialog() {
   });
 
   const onSubmit = async (data: CreateResumeFormValues) => {
-    console.log('User object before submission:', user);
+    console.log('CreateResumeDialog: onSubmit called with data:', data);
     if (!user?.id) {
-      console.error('User ID is missing. Cannot create resume.');
+      console.error('CreateResumeDialog: User ID is missing. Cannot create resume.');
+      alert('User ID is missing. Please log in again.');
       return;
     }
     
@@ -78,17 +78,13 @@ export function CreateResumeDialog() {
         ],
       };
       
-      console.log('Creating resume with data:', resumeData);
+      console.log('CreateResumeDialog: Creating resume with data:', resumeData);
       const newResume = await resumeService.createResume(resumeData);
-      console.log('Resume created successfully:', newResume);
-      if (!newResume?.id) {
-        console.error('New resume ID is missing in response:', newResume);
-        return;
-      }
+      console.log('CreateResumeDialog: Resume created successfully:', newResume);
       setOpen(false);
       navigate(`/builder/${newResume.id}`);
     } catch (error) {
-      console.error('Error creating resume:', error);
+      console.error('CreateResumeDialog: Error creating resume:', error);
       alert('Failed to create resume. Please try again.');
     } finally {
       setIsLoading(false);
@@ -98,7 +94,7 @@ export function CreateResumeDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-brand-600 hover:bg-brand-700" disabled={loading || !user}>
+        <Button className="bg-brand-600 hover:bg-brand-700">
           <Plus className="mr-2 h-4 w-4" />
           Create Resume
         </Button>

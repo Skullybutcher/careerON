@@ -49,21 +49,13 @@ export function SummaryForm({ resumeId }: SummaryFormProps) {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/summary`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
+        const data = await resumeSectionService.getSection(resumeId, 'summary');
+        setInitialData(data);
+
+        // Set form values
+        form.reset({
+          content: data.content || '',
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setInitialData(data);
-          
-          // Set form values
-          form.reset({
-            content: data.content || '',
-          });
-        }
       } catch (error) {
         console.error('Error fetching summary:', error);
       } finally {
@@ -76,11 +68,11 @@ export function SummaryForm({ resumeId }: SummaryFormProps) {
 
   const onSubmit = async (data: SummaryFormValues) => {
     if (!resumeId) return;
-    
+
     try {
       setIsLoading(true);
-      await resumeSectionService.updateSection(resumeId, 'summary', data);
-      
+      await resumeSectionService.updateSection(resumeId, 'summary', { summary: data.content });
+
       toast({
         title: 'Summary saved',
         description: 'Your professional summary has been updated successfully',

@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { resumeSectionService } from '@/services/api';
-import { Experience } from '@/types';
+import { resumeSectionService } from '../../../services/api';
+import { Experience } from '../../../types';
 import {
   Form,
   FormControl,
@@ -12,13 +11,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/components/ui/use-toast';
+} from '../../../components/ui/form';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { useToast } from '../../../components/ui/use-toast';
 import { Plus, Save, Trash, Edit } from 'lucide-react';
 
 const experienceSchema = z.object({
@@ -36,9 +35,10 @@ type ExperienceFormValues = z.infer<typeof experienceSchema>;
 
 interface ExperienceFormProps {
   resumeId: string | undefined;
+  onSaveSuccess?: () => void;
 }
 
-export function ExperienceForm({ resumeId }: ExperienceFormProps) {
+export function ExperienceForm({ resumeId, onSaveSuccess }: ExperienceFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -66,19 +66,11 @@ export function ExperienceForm({ resumeId }: ExperienceFormProps) {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/experience`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            setExperiences(data);
-          } else {
-            setExperiences([]);
-          }
+        const data = await resumeSectionService.getSection(resumeId, 'experience');
+        if (Array.isArray(data)) {
+          setExperiences(data);
+        } else {
+          setExperiences([]);
         }
       } catch (error) {
         console.error('Error fetching experience:', error);
@@ -148,6 +140,9 @@ export function ExperienceForm({ resumeId }: ExperienceFormProps) {
         title: 'Experience saved',
         description: editingIndex !== null ? 'Experience entry updated successfully' : 'New experience entry added successfully',
       });
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
     } catch (error) {
       console.error('Error saving experience:', error);
       toast({
@@ -193,6 +188,9 @@ export function ExperienceForm({ resumeId }: ExperienceFormProps) {
         title: 'Experience deleted',
         description: 'Experience entry removed successfully',
       });
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
     } catch (error) {
       console.error('Error deleting experience:', error);
       toast({

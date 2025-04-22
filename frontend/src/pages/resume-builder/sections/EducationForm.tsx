@@ -62,19 +62,11 @@ export function EducationForm({ resumeId }: EducationFormProps) {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`https://api.careernavigator.example.com/api/v1/resumes/${resumeId}/sections/education`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            setEducations(data);
-          } else {
-            setEducations([]);
-          }
+        const data = await resumeSectionService.getSection(resumeId, 'education');
+        if (Array.isArray(data)) {
+          setEducations(data);
+        } else {
+          setEducations([]);
         }
       } catch (error) {
         console.error('Error fetching education:', error);

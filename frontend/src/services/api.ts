@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Define base URL for API
@@ -30,9 +29,9 @@ api.interceptors.request.use(
 export const authService = {
   login: async (email: string, password: string) => {
     const response = await api.post('/login', { email, password });
-    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('token', response.data.access_token);
     localStorage.setItem('userId', response.data.user.id);
-    return response.data;
+    return response.data.user;
   },
   register: async (name: string, email: string, password: string) => {
     const response = await api.post('/users', { name, email, password });
