@@ -36,6 +36,209 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 api = Blueprint('api', __name__)
 CORS(api, origins=["http://localhost:8080"])
 
+from flask import send_file
+import io
+
+@api.route("/resumes/<resume_id>/export", methods=["GET", "OPTIONS"])
+def export_resume(resume_id):
+    from flask import make_response
+    import traceback
+    try:
+        # Handle CORS preflight
+        if request.method == "OPTIONS":
+            response = make_response('', 204)
+            response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return response
+
+        export_format = request.args.get("format", "pdf")
+        template = request.args.get("template", "default")
+
+        if export_format != "pdf":
+            response = make_response(jsonify({"error": "Unsupported export format"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+            return response
+
+        from flask import render_template
+        import pdfkit
+        import datetime
+
+        db = next(get_db())
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        if not resume:
+            response = make_response(jsonify({"error": "Resume not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+            return response
+
+        # Determine visible sections from resume.section_settings
+        visible_sections = set()
+        if resume.section_settings:
+            for section in resume.section_settings:
+                if section.get("visible", True):
+                    visible_sections.add(section.get("name"))
+
+        # Prepare data for template rendering
+        generated_date = datetime.datetime.now().strftime("%B %d, %Y")
+
+        # Transform resume data for template to match frontend preview
+        def format_date(date_obj):
+            if not date_obj:
+                return None
+            return date_obj.strftime("%b %Y")
+
+        def transform_resume(resume):
+            # Convert ORM to dict and add formatted dates and mapped fields
+            r = resume.__dict__.copy()
+
+            # Personal info mapping
+            if resume.personal_info:
+                pi = resume.personal_info.__dict__.copy()
+                pi['linkedin_url'] = pi.get('linkedin')
+                pi['github_url'] = pi.get('github')
+                pi['portfolio_url'] = pi.get('portfolio')
+                r['personal_info'] = pi
+            else:
+                r['personal_info'] = None
+
+            # Format dates in experience
+            if resume.experience:
+                exp_list = []
+                for exp in resume.experience:
+                    e = exp.__dict__.copy()
+                    e['start_date_formatted'] = format_date(e.get('start_date'))
+                    e['end_date_formatted'] = format_date(e.get('end_date'))
+                    exp_list.append(e)
+                r['experience'] = exp_list
+            else:
+                r['experience'] = []
+
+            # Format dates in education
+            if resume.education:
+                edu_list = []
+                for edu in resume.education:
+                    ed = edu.__dict__.copy()
+                    ed['start_date_formatted'] = format_date(ed.get('start_date'))
+                    ed['end_date_formatted'] = format_date(ed.get('end_date'))
+                    edu_list.append(ed)
+                r['education'] = edu_list
+            else:
+                r['education'] = []
+
+            # Format skills (map level to proficiency if needed)
+            if resume.skills:
+                skills_list = []
+                for skill in resume.skills:
+                    s = skill.__dict__.copy()
+                    skills_list.append(s)
+                r['skills'] = skills_list
+            else:
+                r['skills'] = []
+
+            # Format projects (map link to url, format dates)
+            if resume.projects:
+                proj_list = []
+                for proj in resume.projects:
+                    p = proj.__dict__.copy()
+                    p['url'] = p.get('link')
+                    p['start_date_formatted'] = format_date(p.get('start_date'))
+                    p['end_date_formatted'] = format_date(p.get('end_date'))
+                    proj_list.append(p)
+                r['projects'] = proj_list
+            else:
+                r['projects'] = []
+
+            # Format certifications (format dates)
+            if resume.certifications:
+                cert_list = []
+                for cert in resume.certifications:
+                    c = cert.__dict__.copy()
+                    c['date_formatted'] = format_date(c.get('date'))
+                    cert_list.append(c)
+                r['certifications'] = cert_list
+            else:
+                r['certifications'] = []
+
+            # Format achievements (format dates)
+            if resume.achievements:
+                ach_list = []
+                for ach in resume.achievements:
+                    a = ach.__dict__.copy()
+                    a['date'] = a.get('date')
+                    ach_list.append(a)
+                r['achievements'] = ach_list
+            else:
+                r['achievements'] = []
+
+            # Format extracurriculars (format dates)
+            if resume.extracurriculars:
+                extra_list = []
+                for extra in resume.extracurriculars:
+                    ex = extra.__dict__.copy()
+                    extra_list.append(ex)
+                r['extracurriculars'] = extra_list
+            else:
+                r['extracurriculars'] = []
+
+            # Format courses (format dates)
+            if resume.courses:
+                course_list = []
+                for course in resume.courses:
+                    co = course.__dict__.copy()
+                    co['date_completed'] = co.get('date_completed')
+                    course_list.append(co)
+                r['courses'] = course_list
+            else:
+                r['courses'] = []
+
+            # Format volunteer work (format dates)
+            if resume.volunteer_work:
+                vol_list = []
+                for vol in resume.volunteer_work:
+                    v = vol.__dict__.copy()
+                    vol_list.append(v)
+                r['volunteer_work'] = vol_list
+            else:
+                r['volunteer_work'] = []
+
+            # Format publications (format dates)
+            if resume.publications:
+                pub_list = []
+                for pub in resume.publications:
+                    p = pub.__dict__.copy()
+                    pub_list.append(p)
+                r['publications'] = pub_list
+            else:
+                r['publications'] = []
+
+            return r
+
+        transformed_resume = transform_resume(resume)
+
+        # Render the HTML template with transformed resume data and visible sections
+        rendered_html = render_template(
+            f"modern.html" if template == "modern" else "default.html",
+            resume=transformed_resume,
+            visible_sections=visible_sections,
+            generated_date=generated_date
+        )
+
+        # Generate PDF from rendered HTML using pdfkit
+        pdf_bytes = pdfkit.from_string(rendered_html, False)
+
+        # Return PDF as response with CORS headers
+        from flask import Response
+        response = Response(pdf_bytes, mimetype='application/pdf')
+        response.headers['Content-Disposition'] = f'attachment; filename=resume_{resume_id}.pdf'
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        return response
+    except Exception as e:
+        current_app.logger.error(f"Error exporting resume {resume_id}: {str(e)}")
+        current_app.logger.error(traceback.format_exc())
+        response = make_response(jsonify({"error": "Internal server error"}), 500)
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        return response
+
 @api.route("/test", methods=["GET"])
 def test_endpoint():
     return jsonify({"message": "API is working"}), 200
