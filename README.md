@@ -33,6 +33,7 @@ The Career Opportunities Navigator is a comprehensive resume management system t
 - SQLAlchemy (ORM)
 - JWT Authentication
 - Resume parsing libraries
+- spaCy NLP library with `en_core_web_sm` model
 
 ### Frontend
 - HTML5, CSS3, JavaScript
@@ -40,8 +41,9 @@ The Career Opportunities Navigator is a comprehensive resume management system t
 - Interactive resume builder
 
 ### Database
-- SQLite (Development)
 - PostgreSQL (Production-ready)
+  - Database name: `career_navigator`
+- SQLite (Development)
 
 ## Installation & Setup
 
@@ -49,6 +51,8 @@ The Career Opportunities Navigator is a comprehensive resume management system t
 - Python 3.8+
 - pip
 - Virtual environment (recommended)
+- PostgreSQL installed and running
+- PostgreSQL database named `career_navigator` created
 
 ### Installation Steps
 1. Clone the repository:
@@ -68,10 +72,20 @@ The Career Opportunities Navigator is a comprehensive resume management system t
    pip install -r requirements.txt
    ```
 
-4. Set up environment variables:
+4. Download the spaCy English model:
+   ```bash
+   python -m spacy download en_core_web_sm
+   ```
+
+5. Set up environment variables:
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env with your configuration, including database connection details
+   ```
+
+6. Ensure PostgreSQL database `career_navigator` exists:
+   ```bash
+   psql -U yourusername -c "CREATE DATABASE career_navigator;"
    ```
 
 ## Running the Application
