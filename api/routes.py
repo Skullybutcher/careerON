@@ -239,6 +239,42 @@ def export_resume(resume_id):
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
 
+@api.route("/login", methods=["POST"])
+@limiter.limit("5 per minute")
+def login():
+    data = request.json
+    
+    # Validate input
+    try:
+        login_data = UserLogin(**data)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    db = next(get_db())
+    
+    # Find user by email
+    user = db.query(User).filter(User.email == login_data.email).first()
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Verify password
+    if not check_password_hash(user.password, login_data.password):
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Create JWT token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    return jsonify({
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(user).dict()
+    })
+
 @api.route("/test", methods=["GET"])
 def test_endpoint():
     return jsonify({"message": "API is working"}), 200
@@ -338,6 +374,27 @@ def create_user():
         db.rollback()
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
+@api.route("/resumes/<resume_id>", methods=["GET"])
+def get_resume(resume_id):
+    try:
+        db = next(get_db())
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        if not resume:
+            return jsonify({"error": "Resume not found"}), 404
+        
+        from api.schemas import ResumeResponse, PersonalInfoSchema
+        try:
+            if resume.personal_info:
+                resume.personal_info = PersonalInfoSchema.from_orm(resume.personal_info)
+        except Exception as e:
+            current_app.logger.error(f"Error serializing personal_info for resume {resume.id}: {str(e)}")
+            resume.personal_info = None
+        
+        return jsonify(ResumeResponse.from_orm(resume).dict()), 200
+    except Exception as e:
+        current_app.logger.error(f"Error fetching resume {resume_id}: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+    
 # Resume routes
 @api.route("/resumes", methods=["POST"])
 def create_resume():
