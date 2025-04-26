@@ -4,6 +4,7 @@ from api.limiter import limiter
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
+from resume_optimizer import ResumeOptimizer
 from sqlalchemy.orm import Session
 from database.db import get_db
 from database.models import (
@@ -239,6 +240,36 @@ def export_resume(resume_id):
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
 
+
+optimizer = ResumeOptimizer()
+
+@api.route('/api/apply-resume-changes', methods=['POST'])
+def apply_resume_changes():
+    try:
+        data = request.get_json()
+        resume = data.get('resume')
+        ats_result = data.get('ats_result')  # Must include `issues`
+        keyword_matches = data.get('keyword_matches')  # Dict of keywords and scores
+
+        if not (resume and ats_result and keyword_matches):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Enhance the resume using Hugging Face-powered rewriting
+        enhanced_resume = optimizer.enhance_resume(resume, ats_result, keyword_matches)
+
+        return jsonify({
+            "success": True,
+            "message": "Resume enhanced successfully.",
+            "enhanced_resume": enhanced_resume
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error enhancing resume: {str(e)}"
+        }), 500
+    
+    
 @api.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
 def login():
