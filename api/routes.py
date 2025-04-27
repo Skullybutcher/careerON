@@ -4,8 +4,11 @@ from api.limiter import limiter
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
+from services.resume_optimizer import ResumeOptimizer
 from sqlalchemy.orm import Session
 from database.db import get_db
+import traceback
+from flask import make_response
 from database.models import (
     User, Resume, PersonalInfo, Education, Experience, 
     Skill, Project, Achievement, Extracurricular, Course,
@@ -239,6 +242,36 @@ def export_resume(resume_id):
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
 
+
+optimizer = ResumeOptimizer()
+
+# @api.route('/api/apply-resume-changes', methods=['POST'])
+# def apply_resume_changes():
+#     try:
+#         data = request.get_json()
+#         resume = data.get('resume')
+#         ats_result = data.get('ats_result')  # Must include `issues`
+#         keyword_matches = data.get('keyword_matches')  # Dict of keywords and scores
+
+#         if not (resume and ats_result and keyword_matches):
+#             return jsonify({"error": "Missing required fields"}), 400
+
+#         # Enhance the resume using Hugging Face-powered rewriting
+#         enhanced_resume = optimizer.enhance_resume(resume, ats_result, keyword_matches)
+
+#         return jsonify({
+#             "success": True,
+#             "message": "Resume enhanced successfully.",
+#             "enhanced_resume": enhanced_resume
+#         }), 200
+
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Error enhancing resume: {str(e)}"
+#         }), 500
+    
+    
 @api.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
 def login():
@@ -285,9 +318,6 @@ resume_generator = ResumeGenerator()
 
 @api.route("/resumes/<resume_id>/optimize", methods=["POST", "OPTIONS"])
 def optimize_resume(resume_id):
-    from flask import make_response
-    import traceback
-    # Handle CORS preflight
     if request.method == "OPTIONS":
         response = make_response('', 204)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
@@ -303,19 +333,33 @@ def optimize_resume(resume_id):
             response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
             return response
 
-        # Convert resume_obj to dict for optimizer
-        from api.schemas import ResumeResponse
         resume_data = ResumeResponse.from_orm(resume_obj).dict()
-
-        # Get job description from request JSON
         job_description = request.json.get("job_description", "")
 
-        # Use ResumeOptimizer service to optimize the resume for the job description
+        # Optimization: similarity, suggestions, skill gap
         optimization_result = resume_optimizer.optimize_for_job(resume_data, job_description)
 
-        response = make_response(jsonify(optimization_result), 200)
+        # Advanced improvement suggestions
+        ats_result = resume_optimizer.check_ats_compatibility(resume_data)
+        keyword_matches = {skill: 1.0 if skill not in optimization_result["missing_skills"] else 0.0
+                           for skill in optimization_result["missing_skills"]}
+
+        # Call Hugging Face Mistral for feedback (not direct editing)
+        improvement_advice = resume_optimizer.enhance_resume(
+            resume_data,
+            ats_result,
+            keyword_matches
+        )
+
+        response_data = {
+            "optimization": optimization_result,
+            "improvement_advice": improvement_advice
+        }
+
+        response = make_response(jsonify(response_data), 200)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
+
     except Exception as e:
         current_app.logger.error(f"Error optimizing resume {resume_id}: {str(e)}")
         current_app.logger.error(traceback.format_exc())
