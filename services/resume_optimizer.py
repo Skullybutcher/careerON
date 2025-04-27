@@ -4,6 +4,7 @@ import json
 import re
 from sentence_transformers import SentenceTransformer, util
 from huggingface_hub import InferenceClient
+import datetime
 
 class ResumeOptimizer:
     def __init__(self):
@@ -15,7 +16,7 @@ class ResumeOptimizer:
             self.nlp = spacy.load("en_core_web_sm")
 
         self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        self.hf_client = InferenceClient("mistralai/Mistral-7B-Instruct-v0.1", token=os.getenv("HF_TOKEN"))
+        self.hf_client = InferenceClient("HuggingFaceH4/zephyr-7b-beta", token=os.getenv("your_huggingface_token"))
 
     def optimize_for_job(self, resume, job_description):
         resume_text = self._get_resume_text(resume)
@@ -46,28 +47,43 @@ class ResumeOptimizer:
         missing = [k for k, v in keyword_matches.items() if v < 0.5]
         missing_text = ", ".join(missing[:10]) or "None"
 
+        def custom_serializer(obj):
+            if isinstance(obj, (datetime.date, datetime.datetime)):
+                return obj.isoformat()
+            raise TypeError(f"Type {type(obj)} not serializable")
+
         prompt = f"""
-You are an expert resume writer. Improve the provided resume JSON for better ATS compatibility and human readability, focusing on these ATS issues and missing keywords:
+        You are a resume coach AI. Please provide suggestions to improve the following resume based on detected ATS issues and missing keywords.
 
-ATS Issues:
-{ats_issues}
+        ATS Issues:
+        {ats_issues}
 
-Keyword Gaps:
-{missing_text}
+        Missing Keywords:
+        {missing_text}
 
-Original Resume:
-{json.dumps(resume, indent=2)}
+        Resume JSON:
+        {json.dumps(resume, indent=2, default=custom_serializer)}
 
-Please output only the enhanced resume as JSON in the same schema.
-"""
+        Instructions:
+        - Do not modify or generate a new resume.
+        - Just suggest clear improvement advice.
+        - Structure your output like:
+        Summary Advice:
+        ...
+        Skills Advice:
+        ...
+        Projects Advice:
+        ...
+        Only output advice in plain text, no JSON.
 
-        response = self.hf_client.text_generation(prompt, max_new_tokens=1500, temperature=0.2)
+        """
 
-        try:
-            return json.loads(response)
-        except Exception:
-            match = re.search(r"(\{.*\})", response, re.DOTALL)
-            return json.loads(match.group(1)) if match else {}
+        response = self.hf_client.text_generation(prompt, max_new_tokens=1000, temperature=0.2)
+
+        return {
+        "advice_text": response.strip()  # Just return the plain advice text
+        }
+
 
     def _get_resume_text(self, resume):
         sections = []
