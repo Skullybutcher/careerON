@@ -3,6 +3,7 @@ from flask_cors import CORS
 from api.routes import api
 from database.db import Base, engine
 
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')

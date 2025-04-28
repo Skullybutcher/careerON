@@ -26,7 +26,8 @@ export default function ResumeOptimization() {
   const [optimizationLevel, setOptimizationLevel] = useState<'light' | 'moderate' | 'aggressive'>('moderate');
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [optimization, setOptimization] = useState<OptimizationResponse | null>(null);
+  
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResponse | null>(null);
 
   useEffect(() => {
     const fetchResume = async () => {
@@ -57,7 +58,7 @@ export default function ResumeOptimization() {
 
   const handleOptimize = async () => {
     if (!resumeId || !jobDescription.trim()) return;
-    
+  
     try {
       setIsProcessing(true);
       const result = await resumeService.optimizeResume(
@@ -65,9 +66,9 @@ export default function ResumeOptimization() {
         jobDescription,
         optimizationLevel
       );
-      
-      setOptimization(result);
-      
+  
+      setOptimizationResult(result);
+  
       toast({
         title: 'Optimization complete',
         description: 'Your resume has been analyzed against the job description',
@@ -83,6 +84,7 @@ export default function ResumeOptimization() {
       setIsProcessing(false);
     }
   };
+  
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
@@ -213,76 +215,112 @@ export default function ResumeOptimization() {
         </div>
         
         <div>
-          {optimization ? (
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold flex items-center mb-4">
-                  <Sparkles className="mr-2 h-5 w-5 text-brand-600" />
-                  Optimization Results
-                </h2>
-                
-                <div className="mb-6">
-                  <div className="flex justify-between mb-2">
-                    <span className="font-medium">Match Score</span>
-                    <span className={`font-bold ${getScoreColor(optimization.score)}`}>
-                      {optimization.score}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={optimization.score} 
-                    className={`h-2 ${getProgressColor(optimization.score)}`}
-                  />
-                  
-                  <p className="mt-2 text-sm text-gray-600">
-                    {optimization.score >= 80 
-                      ? 'Your resume is well-matched to this job. Great job!'
-                      : optimization.score >= 60
-                        ? 'Your resume shows decent alignment. Some improvements could help.'
-                        : 'Your resume needs significant improvements to match this job.'}
-                  </p>
-                </div>
-                
-                <div className="space-y-4">
-                  <h3 className="font-medium text-lg">Improvement Suggestions</h3>
-                  {optimization.suggestions.length > 0 ? (
-                    <ul className="space-y-2">
-                      {optimization.suggestions.map((suggestion, index) => (
-                        <li key={index} className="flex items-start">
-                          {optimization.score >= 80 ? (
-                            <CheckCircle className="h-5 w-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
-                          )}
-                          <span>{suggestion}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-600">
-                      No specific suggestions provided. Your resume may already be well-optimized.
-                    </p>
-                  )}
-                  
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <Button 
-                      onClick={() => navigate(`/builder/${resumeId}`)}
-                      className="w-full bg-brand-600 hover:bg-brand-700"
-                    >
-                      Apply Changes to Resume
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="bg-gray-50 rounded-lg p-12 h-full flex flex-col items-center justify-center text-center">
-              <Sparkles className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Resume Optimization</h3>
-              <p className="text-gray-600 mb-6 max-w-md">
-                Paste a job description on the left and click "Optimize Resume" to see how well your resume matches the requirements.
-              </p>
-            </div>
-          )}
+        {optimizationResult ? (
+  <Card>
+    <CardContent className="p-6">
+      <h2 className="text-xl font-semibold flex items-center mb-4">
+        <Sparkles className="mr-2 h-5 w-5 text-brand-600" />
+        Optimization Results
+      </h2>
+
+      {/* Match Score */}
+      <div className="mb-6">
+        <div className="flex justify-between mb-2">
+          <span className="font-medium">Match Score</span>
+          <span className={`font-bold ${getScoreColor(optimizationResult.optimization.score)}`}>
+            {optimizationResult.optimization.score}%
+          </span>
+        </div>
+        <Progress
+          value={optimizationResult.optimization.score}
+          className={`h-2 ${getProgressColor(optimizationResult.optimization.score)}`}
+        />
+        <p className="mt-2 text-sm text-gray-600">
+          {optimizationResult.optimization.feedback}
+        </p>
+      </div>
+
+      {/* Suggestions */}
+      <div className="space-y-4">
+        <h3 className="font-medium text-lg">Improvement Suggestions</h3>
+        {optimizationResult.optimization.suggestions.length > 0 ? (
+          <ul className="space-y-2">
+            {optimizationResult.optimization.suggestions.map((suggestion, index) => (
+              <li key={index} className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
+                <span>{suggestion}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">
+            No specific suggestions provided. Your resume may already be well-optimized.
+          </p>
+        )}
+      </div>
+
+      {/* Missing Skills */}
+      <div className="mt-6">
+        <h3 className="font-medium text-lg">Missing Skills</h3>
+        {optimizationResult.optimization.missing_skills.length > 0 ? (
+          <ul className="list-disc list-inside text-gray-700">
+            {optimizationResult.optimization.missing_skills.map((skill, index) => (
+              <li key={index}>{skill}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">No missing skills identified.</p>
+        )}
+      </div>
+
+      {/* Resume Boost Paragraph */}
+      <div className="mt-6">
+        <h3 className="font-medium text-lg">Resume Boost Paragraph</h3>
+        <p className="text-gray-700">
+          {optimizationResult.optimization.resume_boost_paragraph}
+        </p>
+      </div>
+
+      {/* Improvement Advice */}
+      <div className="mt-6">
+        <h3 className="font-medium text-lg">Improvement Advice</h3>
+        <div className="space-y-2">
+          <div>
+            <strong>Summary:</strong>
+            <p>{optimizationResult.improvement_advice.summary}</p>
+          </div>
+          <div>
+            <strong>Skills:</strong>
+            <p>{optimizationResult.improvement_advice.skills}</p>
+          </div>
+          <div>
+            <strong>Projects:</strong>
+            <p>{optimizationResult.improvement_advice.projects}</p>
+          </div>
+          {/* Add other fields as necessary */}
+        </div>
+      </div>
+
+      <div className="mt-6 pt-4 border-t border-gray-200">
+        <Button
+          onClick={() => navigate(`/builder/${resumeId}`)}
+          className="w-full bg-brand-600 hover:bg-brand-700"
+        >
+          Apply Changes to Resume
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+) : (
+  <div className="bg-gray-50 rounded-lg p-12 h-full flex flex-col items-center justify-center text-center">
+    <Sparkles className="h-16 w-16 text-gray-400 mb-4" />
+    <h3 className="text-xl font-semibold mb-2">Resume Optimization</h3>
+    <p className="text-gray-600 mb-6 max-w-md">
+      Paste a job description on the left and click "Optimize Resume" to see how well your resume matches the requirements.
+    </p>
+  </div>
+)}
+
         </div>
       </div>
     </div>

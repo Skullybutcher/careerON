@@ -4,8 +4,11 @@ from api.limiter import limiter
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import jwt
+from services.resume_optimizer import ResumeOptimizer
 from sqlalchemy.orm import Session
 from database.db import get_db
+import traceback
+from flask import make_response
 from database.models import (
     User, Resume, PersonalInfo, Education, Experience, 
     Skill, Project, Achievement, Extracurricular, Course,
@@ -239,6 +242,72 @@ def export_resume(resume_id):
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
 
+
+optimizer = ResumeOptimizer()
+
+# @api.route('/api/apply-resume-changes', methods=['POST'])
+# def apply_resume_changes():
+#     try:
+#         data = request.get_json()
+#         resume = data.get('resume')
+#         ats_result = data.get('ats_result')  # Must include `issues`
+#         keyword_matches = data.get('keyword_matches')  # Dict of keywords and scores
+
+#         if not (resume and ats_result and keyword_matches):
+#             return jsonify({"error": "Missing required fields"}), 400
+
+#         # Enhance the resume using Hugging Face-powered rewriting
+#         enhanced_resume = optimizer.enhance_resume(resume, ats_result, keyword_matches)
+
+#         return jsonify({
+#             "success": True,
+#             "message": "Resume enhanced successfully.",
+#             "enhanced_resume": enhanced_resume
+#         }), 200
+
+#     except Exception as e:
+#         return jsonify({
+#             "success": False,
+#             "message": f"Error enhancing resume: {str(e)}"
+#         }), 500
+    
+    
+@api.route("/login", methods=["POST"])
+@limiter.limit("5 per minute")
+def login():
+    data = request.json
+    
+    # Validate input
+    try:
+        login_data = UserLogin(**data)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    db = next(get_db())
+    
+    # Find user by email
+    user = db.query(User).filter(User.email == login_data.email).first()
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Verify password
+    if not check_password_hash(user.password, login_data.password):
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Create JWT token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    return jsonify({
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(user).dict()
+    })
+
 @api.route("/test", methods=["GET"])
 def test_endpoint():
     return jsonify({"message": "API is working"}), 200
@@ -249,9 +318,6 @@ resume_generator = ResumeGenerator()
 
 @api.route("/resumes/<resume_id>/optimize", methods=["POST", "OPTIONS"])
 def optimize_resume(resume_id):
-    from flask import make_response
-    import traceback
-    # Handle CORS preflight
     if request.method == "OPTIONS":
         response = make_response('', 204)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
@@ -267,19 +333,33 @@ def optimize_resume(resume_id):
             response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
             return response
 
-        # Convert resume_obj to dict for optimizer
-        from api.schemas import ResumeResponse
         resume_data = ResumeResponse.from_orm(resume_obj).dict()
-
-        # Get job description from request JSON
         job_description = request.json.get("job_description", "")
 
-        # Use ResumeOptimizer service to optimize the resume for the job description
+        # Optimization: similarity, suggestions, skill gap
         optimization_result = resume_optimizer.optimize_for_job(resume_data, job_description)
 
-        response = make_response(jsonify(optimization_result), 200)
+        # Advanced improvement suggestions
+        ats_result = resume_optimizer.check_ats_compatibility(resume_data)
+        keyword_matches = {skill: 1.0 if skill not in optimization_result["missing_skills"] else 0.0
+                           for skill in optimization_result["missing_skills"]}
+
+        # Call Hugging Face Mistral for feedback (not direct editing)
+        improvement_advice = resume_optimizer.enhance_resume(
+            resume_data,
+            ats_result,
+            keyword_matches
+        )
+
+        response_data = {
+            "optimization": optimization_result,
+            "improvement_advice": improvement_advice
+        }
+
+        response = make_response(jsonify(response_data), 200)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
+
     except Exception as e:
         current_app.logger.error(f"Error optimizing resume {resume_id}: {str(e)}")
         current_app.logger.error(traceback.format_exc())
@@ -338,6 +418,27 @@ def create_user():
         db.rollback()
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
+@api.route("/resumes/<resume_id>", methods=["GET"])
+def get_resume(resume_id):
+    try:
+        db = next(get_db())
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        if not resume:
+            return jsonify({"error": "Resume not found"}), 404
+        
+        from api.schemas import ResumeResponse, PersonalInfoSchema
+        try:
+            if resume.personal_info:
+                resume.personal_info = PersonalInfoSchema.from_orm(resume.personal_info)
+        except Exception as e:
+            current_app.logger.error(f"Error serializing personal_info for resume {resume.id}: {str(e)}")
+            resume.personal_info = None
+        
+        return jsonify(ResumeResponse.from_orm(resume).dict()), 200
+    except Exception as e:
+        current_app.logger.error(f"Error fetching resume {resume_id}: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+    
 # Resume routes
 @api.route("/resumes", methods=["POST"])
 def create_resume():

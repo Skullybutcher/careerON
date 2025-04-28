@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Boolean, Integer, Float, Text, 
+    Column, String, Boolean, Integer, Float, Text,
     ForeignKey, DateTime, Date, JSON
 )
 from sqlalchemy.orm import relationship
@@ -9,18 +9,19 @@ from database.db import Base
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)  # Stored hashed
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     resumes = relationship("Resume", back_populates="user", cascade="all, delete-orphan")
-    
+
+
 class Resume(Base):
     __tablename__ = "resumes"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"))
     title = Column(String, nullable=False)
@@ -28,7 +29,7 @@ class Resume(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     section_settings = Column(JSON, default=list)  # Store section visibility and order
-    
+
     user = relationship("User", back_populates="resumes")
     personal_info = relationship("PersonalInfo", back_populates="resume", uselist=False, cascade="all, delete-orphan")
     education = relationship("Education", back_populates="resume", cascade="all, delete-orphan")
@@ -42,9 +43,10 @@ class Resume(Base):
     volunteer_work = relationship("VolunteerWork", back_populates="resume", cascade="all, delete-orphan")
     publications = relationship("Publication", back_populates="resume", cascade="all, delete-orphan")
 
+
 class PersonalInfo(Base):
     __tablename__ = "personal_info"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     full_name = Column(String, nullable=False)
@@ -54,12 +56,13 @@ class PersonalInfo(Base):
     linkedin = Column(String)
     github = Column(String)
     portfolio = Column(String)
-    
+
     resume = relationship("Resume", back_populates="personal_info")
+
 
 class Education(Base):
     __tablename__ = "education"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     institution = Column(String, nullable=False)
@@ -69,12 +72,13 @@ class Education(Base):
     end_date = Column(Date)
     gpa = Column(Float)
     description = Column(Text)
-    
+
     resume = relationship("Resume", back_populates="education")
+
 
 class Experience(Base):
     __tablename__ = "experience"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     company = Column(String, nullable=False)
@@ -85,23 +89,25 @@ class Experience(Base):
     current = Column(Boolean, default=False)
     description = Column(Text)
     achievements = Column(JSON)  # List of achievements as strings
-    
+
     resume = relationship("Resume", back_populates="experience")
+
 
 class Skill(Base):
     __tablename__ = "skills"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     name = Column(String, nullable=False)
-    level = Column(String)  # beginner, intermediate, advanced, expert
-    category = Column(String)  # technical, soft, language, etc.
-    
+    level = Column(String)
+    category = Column(String)
+
     resume = relationship("Resume", back_populates="skills")
+
 
 class Project(Base):
     __tablename__ = "projects"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     title = Column(String, nullable=False)
@@ -110,24 +116,26 @@ class Project(Base):
     start_date = Column(Date)
     end_date = Column(Date)
     link = Column(String)
-    
+
     resume = relationship("Resume", back_populates="projects")
+
 
 class Achievement(Base):
     __tablename__ = "achievements"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     title = Column(String, nullable=False)
     description = Column(Text)
     date = Column(Date)
     issuer = Column(String)
-    
+
     resume = relationship("Resume", back_populates="achievements")
+
 
 class Extracurricular(Base):
     __tablename__ = "extracurriculars"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     activity = Column(String, nullable=False)
@@ -136,24 +144,26 @@ class Extracurricular(Base):
     start_date = Column(Date)
     end_date = Column(Date)
     description = Column(Text)
-    
+
     resume = relationship("Resume", back_populates="extracurriculars")
+
 
 class Course(Base):
     __tablename__ = "courses"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     name = Column(String, nullable=False)
     institution = Column(String)
     date_completed = Column(Date)
     description = Column(Text)
-    
+
     resume = relationship("Resume", back_populates="courses")
+
 
 class Certification(Base):
     __tablename__ = "certifications"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     name = Column(String, nullable=False)
@@ -161,12 +171,13 @@ class Certification(Base):
     date = Column(Date)
     credential_id = Column(String)
     url = Column(String)
-    
+
     resume = relationship("Resume", back_populates="certifications")
+
 
 class VolunteerWork(Base):
     __tablename__ = "volunteer_work"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     organization = Column(String, nullable=False)
@@ -174,12 +185,13 @@ class VolunteerWork(Base):
     start_date = Column(Date)
     end_date = Column(Date)
     description = Column(Text)
-    
+
     resume = relationship("Resume", back_populates="volunteer_work")
+
 
 class Publication(Base):
     __tablename__ = "publications"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     resume_id = Column(String, ForeignKey("resumes.id"))
     title = Column(String, nullable=False)
@@ -188,6 +200,5 @@ class Publication(Base):
     date = Column(Date)
     url = Column(String)
     description = Column(Text)
-    
-    resume = relationship("Resume", back_populates="publications")
 
+    resume = relationship("Resume", back_populates="publications")
