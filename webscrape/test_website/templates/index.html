@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Job Scraper</title>
+</head>
+<body>
+    <h1>Find Jobs or Internships</h1>
+    <form id="searchForm">
+        <input type="text" name="keywords" placeholder="Enter job title/skills" required><br><br>
+        <input type="text" name="location" placeholder="Enter location" required><br><br>
+        
+        <label>Time Posted:</label>
+        <select name="time_filter">
+            <option value="24h">Past 24 Hours</option>
+            <option value="week">Past Week</option>
+            <option value="month">Past Month</option>
+            <option value="any">Anytime</option>
+        </select><br><br>
+
+        <label>Job Type:</label>
+        <input type="text" name="job_type" placeholder="e.g. full-time, internship"><br><br>
+
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <div id="results"></div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch('/search', {
+                method: 'POST',
+                body: formData
+            });
+            const jobs = await response.json();
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            if (jobs.length === 0) {
+                resultsDiv.innerHTML = "<p>No jobs found.</p>";
+            } else {
+                jobs.forEach(job => {
+                    const jobDiv = document.createElement('div');
+                    jobDiv.innerHTML = `
+                        <h3><a href="${job.link}" target="_blank">${job.title}</a></h3>
+                        <p><strong>${job.company}</strong> — ${job.location}</p>
+                        <small>Posted: ${job.posted}</small>
+                        <hr>
+                    `;
+                    resultsDiv.appendChild(jobDiv);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
