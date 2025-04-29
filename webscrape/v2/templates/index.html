@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Live Job Scraper</title>
+</head>
+<body>
+  <h1>Find Jobs or Internships</h1>
+  <form id="searchForm">
+    <input name="keywords"    placeholder="Job keywords" required><br>
+    <input name="location"    placeholder="Location"    required><br>
+    Time Posted:
+    <select name="time_filter">
+      <option value="24h">Past 24h</option>
+      <option value="week">Past Week</option>
+      <option value="month">Past Month</option>
+      <option value="any" selected>Anytime</option>
+    </select><br>
+    Job Type: <input name="job_type" placeholder="e.g. full-time"><br><br>
+    <button type="submit">Search</button>
+  </form>
+
+  <hr>
+  <div id="results"></div>
+
+  <script>
+    document.getElementById('searchForm').addEventListener('submit', e => {
+      e.preventDefault();
+      document.getElementById('results').innerHTML = '';
+
+      const params = new URLSearchParams(new FormData(e.target));
+      params.set('max_results', '60');  // or whatever
+
+      const evtSource = new EventSource('/stream?' + params);
+      evtSource.onmessage = ({data}) => {
+        const job = JSON.parse(data);
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <h3><a href="${job.link}" target="_blank">${job.title}</a></h3>
+          <p><strong>${job.company}</strong> — ${job.location}</p>
+          <small>Posted: ${job.posted}</small>
+          <hr>
+        `;
+        document.getElementById('results').appendChild(div);
+      };
+      evtSource.onerror = () => {
+        console.error("EventSource failed.");
+        evtSource.close();
+      };
+    });
+  </script>
+</body>
+</html>
