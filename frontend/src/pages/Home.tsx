@@ -160,6 +160,12 @@ export default function Home() {
         <div className="container px-4 mx-auto max-w-7xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">What Our Users Say</h2>
+          </div>
+          <h3 className="text-xl font-semibold mb-3 text-center">Nothing yet</h3>
+        </div>
+        {/* <div className="container px-4 mx-auto max-w-7xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">What Our Users Say</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               Join thousands of professionals who've advanced their careers with our platform
             </p>
@@ -223,7 +229,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </section>
 
       {/* CTA Section */}

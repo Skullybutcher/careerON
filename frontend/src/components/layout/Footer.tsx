@@ -73,7 +73,7 @@ export function Footer() {
               Resources
             </h3>
             <ul className="mt-4 space-y-2">
-              <li>
+              {/* <li>
                 <Link to="/blog" className="text-sm text-gray-600 hover:text-brand-600">
                   Blog
                 </Link>
@@ -82,7 +82,7 @@ export function Footer() {
                 <Link to="/guides" className="text-sm text-gray-600 hover:text-brand-600">
                   Career Guides
                 </Link>
-              </li>
+              </li> */}
               <li>
                 <Link to="/faq" className="text-sm text-gray-600 hover:text-brand-600">
                   FAQ

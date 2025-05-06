@@ -16,7 +16,7 @@ class ResumeOptimizer:
             self.nlp = spacy.load("en_core_web_sm")
 
         self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        self.hf_client = InferenceClient("HuggingFaceH4/zephyr-7b-beta", token=os.getenv("your_huggingface_token"))
+        self.hf_client = InferenceClient("HuggingFaceH4/zephyr-7b-beta", token=os.getenv("HF_TOKEN"))
 
     def optimize_for_job(self, resume, job_description):
         resume_text = self._get_resume_text(resume)

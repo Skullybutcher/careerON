@@ -45,9 +45,6 @@ export function Navbar() {
               <Link to="/dashboard" className="text-gray-700 hover:text-brand-600 transition-colors">
                 Dashboard
               </Link>
-              <Link to="/builder" className="text-gray-700 hover:text-brand-600 transition-colors">
-                Resume Builder
-              </Link>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -60,10 +57,10 @@ export function Navbar() {
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  {/* <DropdownMenuItem onClick={() => navigate('/settings')}>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
