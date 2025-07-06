@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Job Scraper with Advanced Filters</title>
+</head>
+<body>
+  <h1>Find Jobs or Internships</h1>
+  <form id="searchForm">
+    <!-- Required -->
+    <label>Keywords*:</label><br>
+    <input name="keywords" placeholder="e.g. Python Developer" required><br><br>
+    
+    <label>Location*:</label><br>
+    <input name="location" placeholder="e.g. India" required><br><br>
+    
+    <!-- Optional -->
+    <label>Time Posted:</label><br>
+    <select name="time_filter">
+      <option value="">Anytime</option>
+      <option value="24h">Past 24 Hours</option>
+      <option value="week">Past Week</option>
+      <option value="month">Past Month</option>
+    </select><br><br>
+    
+    <label>Job Type:</label><br>
+    <select name="job_type">
+      <option value="">Any</option>
+      <option value="full-time">Full-time</option>
+      <option value="part-time">Part-time</option>
+      <option value="contract">Contract</option>
+      <option value="temporary">Temporary</option>
+      <option value="volunteer">Volunteer</option>
+      <option value="internship">Internship</option>
+    </select><br><br>
+    
+    <label>Work Arrangement:</label><br>
+    <select name="work_type">
+      <option value="">Any</option>
+      <option value="1">On-site</option>
+      <option value="2">Remote</option>
+      <option value="3">Hybrid</option>
+    </select><br><br>
+    
+    <label>Experience Level:</label><br>
+    <select name="experience">
+      <option value="">Any</option>
+      <option value="1">Internship</option>
+      <option value="2">Entry level</option>
+      <option value="3">Associate</option>
+      <option value="4">Mid-Senior</option>
+      <option value="5">Director</option>
+      <option value="6">Executive</option>
+    </select><br><br>
+    
+    <label>Company Name:</label><br>
+    <input name="company" placeholder="Filter by Company"><br><br>
+    
+    <button type="submit">Search</button>
+  </form>
+  
+  <hr>
+  <div id="results"></div>
+  
+  <script>
+    document.getElementById('searchForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const params = new URLSearchParams(formData);
+      params.set('max_results', '60');
+      
+      const res = await fetch('/stream?' + params, { method: 'GET' });
+      const evt = new EventSource('/stream?' + params);
+      document.getElementById('results').innerHTML = '';
+      evt.onmessage = ({ data }) => {
+        const job = JSON.parse(data);
+        // if company filter set, skip non-matching
+        const filterCompany = formData.get('company').trim().toLowerCase();
+        if (filterCompany && !job.company.toLowerCase().includes(filterCompany)) {
+          return;
+        }
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <h3><a href="${job.link}" target="_blank">${job.title}</a></h3>
+          <p><strong>${job.company}</strong> — ${job.location}</p>
+          <small>Posted: ${job.posted}</small><hr>
+        `;
+        document.getElementById('results').appendChild(div);
+      };
+      evt.onerror = () => evt.close();
+    });
+  </script>
+</body>
+</html>
