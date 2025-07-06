@@ -1,8 +1,10 @@
 # app.py
+
 from flask import Flask, render_template, request, Response
 import json
-import os
-from scraper import scrape_jobs_generator
+import threading
+import queue
+from scraper_api import scrape_jobs_stream
 
 app = Flask(__name__)
 
@@ -12,26 +14,54 @@ def index():
 
 @app.route('/stream')
 def stream():
-    # get form args
-    kw   = request.args.get('keywords', '')
-    loc  = request.args.get('location', '')
-    tf   = request.args.get('time_filter', 'any')
-    jt   = request.args.get('job_type', '')
-    maxr = int(request.args.get('max_results', 60))
+    # Required
+    keywords = request.args.get('keywords', '').strip()
+    location = request.args.get('location', '').strip()
+    if not keywords or not location:
+        return Response("keywords and location are required", status=400)
 
-    # clear or create jobs.json
-    with open('jobs.json', 'w') as f:
+    # Optional
+    time_filter = request.args.get('time_filter', '')
+    job_type    = request.args.get('job_type', '')
+    work_type   = request.args.get('work_type', '')
+    experience  = request.args.get('experience', '')
+    max_results = int(request.args.get('max_results', 60))
+
+    # Prepare the output file (overwrite)
+    jobs_file = 'jobs.json'
+    with open(jobs_file, 'w') as f:
         json.dump([], f)
 
-    def event_stream():
-        for job in scrape_jobs_generator(kw, loc, tf, jt, maxr):
-            # append to JSON file
-            data = json.load(open('jobs.json'))
-            data.append(job)
-            with open('jobs.json','w') as f:
-                json.dump(data, f, indent=2)
+    # Thread-safe queue for streaming jobs
+    q = queue.Queue()
 
-            # push via SSE
+    # Background worker: scrape and enqueue
+    def worker():
+        for job in scrape_jobs_stream(
+            keywords, location, time_filter, job_type,
+            max_results=max_results, work_type=work_type, experience=experience
+        ):
+            # Append to JSON file
+            # Load-modify-write (could be optimized with incremental writes)
+            with open(jobs_file, 'r+') as f:
+                data = json.load(f)
+                data.append(job)
+                f.seek(0)
+                json.dump(data, f, indent=2)
+                f.truncate()
+            # Push to queue for streaming
+            q.put(job)
+        # Signal completion
+        q.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    # SSE event-stream: consume queue
+    def event_stream():
+        while True:
+            job = q.get()
+            if job is None:
+                break
             yield f"data: {json.dumps(job)}\n\n"
 
     return Response(event_stream(), mimetype="text/event-stream")
