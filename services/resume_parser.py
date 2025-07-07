@@ -2,7 +2,10 @@ import PyPDF2
 import re
 import spacy
 from datetime import datetime
-
+import fitz  # PyMuPDF
+# import pytesseract
+# from PIL import Image
+# import pdf2image
 class ResumeParser:
     def __init__(self):
         # Load spaCy model
@@ -18,8 +21,9 @@ class ResumeParser:
         """Extract text and structure from a PDF resume"""
         
         # Extract text from PDF
-        text = self._extract_text_from_pdf(pdf_file)
-        
+        #text = self._extract_text_from_pdf(pdf_file)
+        #use ocr
+        text = self._extract_text_from_ocr(pdf_file)
         # Parse sections
         sections = self._identify_sections(text)
         
@@ -32,6 +36,7 @@ class ResumeParser:
             "skills": self._extract_skills(sections.get("skills", "")),
             "projects": self._extract_projects(sections.get("projects", ""))
         }
+        return result
 
     def _extract_projects(self, projects_text):
         """Extract project information from text"""
@@ -53,17 +58,36 @@ class ResumeParser:
         
         return projects
     
-    def _extract_text_from_pdf(self, pdf_file):
-        """Extract text from PDF file"""
-        text = ""
-        try:
-            reader = PyPDF2.PdfFileReader(pdf_file)
-            for page_num in range(reader.numPages):
-                text += reader.getPage(page_num).extractText()
-        except Exception as e:
-            print(f"Error extracting text from PDF: {e}")
+    # def _extract_text_from_pdf(self, pdf_file):
+    #     """Extract text from PDF file"""
+    #     text = ""
+    #     try:
+    #         reader = PyPDF2.PdfFileReader(pdf_file)
+    #         for page_num in range(reader.numPages):
+    #             text += reader.getPage(page_num).extractText()
+    #     except Exception as e:
+    #         print(f"Error extracting text from PDF: {e}")
         
-        return text
+    #     return text
+
+    
+
+    def _extract_text_from_pdf(self, pdf_file):
+        try:
+            pdf_file.seek(0)
+            doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+            return "\n".join(page.get_text() for page in doc)
+        except Exception as e:
+            print(f"PyMuPDF failed: {e}")
+            return ""
+
+
+    # def ocr_pdf(pdf_file):
+    #     images = pdf2image.convert_from_bytes(pdf_file.read())
+    #     text = ""
+    #     for image in images:
+    #         text += pytesseract.image_to_string(image)
+    #     return text
     
     def _identify_sections(self, text):
         """Identify different sections in the resume"""
@@ -367,8 +391,14 @@ class ResumeParser:
         
         return skills
     
-    def parse_from_linkedin(self, linkedin_url):
-        """Parse resume from LinkedIn profile"""
-        # This would require implementing a LinkedIn scraper
-        # which is beyond the scope of this example
-        raise NotImplementedError("LinkedIn parsing not implemented")
+    
+
+
+##testing,delete this block later
+if __name__ == "__main__":
+    parser = ResumeParser()
+    with open(r"C:\RRP2\software developer resume.pdf", "rb") as f:  # Replace with your test PDF path
+        result = parser.parse_from_pdf(f)
+        print("Parsed Resume Data:")
+        print(result)
+        print("Extracted Email:", result.get("personal_info", {}).get("email"))

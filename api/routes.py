@@ -3,11 +3,16 @@ from flask_cors import CORS
 from api.limiter import limiter
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import jwt
+import jwt as pyjwt
+from services.resume_parser import ResumeParser
 from services.resume_optimizer import ResumeOptimizer
 from sqlalchemy.orm import Session
 from database.db import get_db
+import re
+from services.resume_optimizer import ResumeOptimizer
+
 import traceback
+from werkzeug.utils import secure_filename
 from flask import make_response
 from database.models import (
     User, Resume, PersonalInfo, Education, Experience, 
@@ -271,7 +276,25 @@ optimizer = ResumeOptimizer()
 #             "message": f"Error enhancing resume: {str(e)}"
 #         }), 500
     
+@api.route('/resumes/parse', methods=['POST'])
+def parse_resume_pdf():
+    if 'resume_file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    pdf_file = request.files['resume_file']
+
+    if pdf_file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        parser = ResumeParser()
+        parsed_data = parser.parse_from_pdf(pdf_file)
+        return jsonify(parsed_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
+
+
 @api.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
 def login():
@@ -374,7 +397,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = pyjwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 @api.route("/users", methods=["POST"])
@@ -602,8 +625,20 @@ def personal_info_section(resume_id):
             data = request.get_json()
             if not data:
                 return jsonify({"error": "No data provided"}), 400
-            # Validate input
+
+                
+            print("Received personal info:", data)
+
+            # Clean or remove invalid email if present
+
+            email = data.get("email")
+            if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                current_app.logger.warning(f"Invalid email detected: {email}")
+                data["email"] = None  # or optionally: del data["email"]
+
+            # Now validate cleaned data
             personal_info_data = PersonalInfoSchema(**data)
+
             resume = db.query(Resume).filter(Resume.id == resume_id).first()
             if not resume:
                 return jsonify({"error": "Resume not found"}), 404

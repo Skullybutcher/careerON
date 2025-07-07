@@ -2,12 +2,23 @@ import spacy
 import os
 import json
 import re
-from sentence_transformers import SentenceTransformer, util
-from huggingface_hub import InferenceClient
-import datetime
 
+from sentence_transformers import SentenceTransformer, util
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+import datetime
+#import google.generativeai as genai
+from google import genai
+from google.genai import types
 class ResumeOptimizer:
     def __init__(self):
+        #genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+       # self.gemini_model = genai.GenerativeModel(model_name="gemini-2.5-flash-lite")
+       
+        # The client gets the API key from the environment variable `GEMINI_API_KEY`.
+        self.client = genai.Client()
+
+
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except:
@@ -16,7 +27,14 @@ class ResumeOptimizer:
             self.nlp = spacy.load("en_core_web_sm")
 
         self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+<<<<<<< HEAD
         self.hf_client = InferenceClient("HuggingFaceH4/zephyr-7b-beta", token=os.getenv("HF_TOKEN"))
+=======
+        self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+>>>>>>> a2ae794 (Fix: optimized resume optimization)
 
     def optimize_for_job(self, resume, job_description):
         resume_text = self._get_resume_text(resume)
@@ -39,13 +57,14 @@ class ResumeOptimizer:
             "suggestions": suggestions,
             "optimized_summary": optimized_summary,
             "missing_skills": missing_skills,
-            "resume_boost_paragraph": self._generate_resume_boost_paragraph(missing_skills)
+           "resume_boost_paragraph": self._generate_resume_boost_paragraph(missing_skills, job_description)
         }
 
     def enhance_resume(self, resume, ats_result, keyword_matches):
         ats_issues = "\n".join(f"- {i}" for i in ats_result['issues']) or "None"
         missing = [k for k, v in keyword_matches.items() if v < 0.5]
         missing_text = ", ".join(missing[:10]) or "None"
+        #print(f"Prompt length: {len(prompt)} characters")
 
         def custom_serializer(obj):
             if isinstance(obj, (datetime.date, datetime.datetime)):
@@ -53,36 +72,71 @@ class ResumeOptimizer:
             raise TypeError(f"Type {type(obj)} not serializable")
 
         prompt = f"""
-        You are a resume coach AI. Please provide suggestions to improve the following resume based on detected ATS issues and missing keywords.
+You are a resume coach AI. Please provide suggestions to improve the following resume based on detected ATS issues and missing keywords.
 
-        ATS Issues:
-        {ats_issues}
+ATS Issues:
+{ats_issues}
 
-        Missing Keywords:
-        {missing_text}
+Missing Keywords:
+{missing_text}
 
-        Resume JSON:
-        {json.dumps(resume, indent=2, default=custom_serializer)}
+Resume JSON:
+{json.dumps(resume, indent=2, default=custom_serializer)}
 
-        Instructions:
-        - Do not modify or generate a new resume.
-        - Just suggest clear improvement advice.
-        - Structure your output like:
-        Summary Advice:
-        ...
-        Skills Advice:
-        ...
-        Projects Advice:
-        ...
-        Only output advice in plain text, no JSON.
+Instructions:
+Give concise feedback using the following format:
 
-        """
+Summary Advice:
+...
 
-        response = self.hf_client.text_generation(prompt, max_new_tokens=1000, temperature=0.2)
+Skills Advice:
+...
+
+Projects Advice:
+...
+
+Keep each section under 4 lines. Use plain text only. No commentary.
+"""
+
+
+        response = self._generate_with_gemini(prompt)
+
+        # Extract structured advice with regex
+        summary = re.search(r"Summary Advice:\s*(.*?)(Skills Advice:|Projects Advice:|$)", response, re.DOTALL)
+        skills = re.search(r"Skills Advice:\s*(.*?)(Projects Advice:|$)", response, re.DOTALL)
+        projects = re.search(r"Projects Advice:\s*(.*)", response, re.DOTALL)
 
         return {
-        "advice_text": response.strip()  # Just return the plain advice text
+            "summary_advice": (summary.group(1).strip() if summary else ""),
+            "skills_advice": (skills.group(1).strip() if skills else ""),
+            "projects_advice": (projects.group(1).strip() if projects else "")
         }
+
+
+
+
+
+    def _generate_with_gemini(self, prompt: str) -> str:
+    # client should already be attached to self; just showing instantiation here
+        client = genai.Client()
+
+        cfg = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig( thinking_budget=0 ),  # disables “thinking”
+            temperature=0.7,
+            max_output_tokens=350,
+            top_p=0.9,
+            top_k=40
+    )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,      
+            config=cfg
+        )
+
+        return response.text
+
+
 
 
     def _get_resume_text(self, resume):
@@ -111,22 +165,12 @@ class ResumeOptimizer:
 
     def _generate_suggestions(self, resume, missing_skills):
         suggestions = []
-
         if missing_skills:
-            suggestions.append("Consider adding these skills to your resume: " + ", ".join(missing_skills[:5]))
-
+            suggestions.append(f"Consider adding the following skills to align with the job requirements: {', '.join(missing_skills)}.")
         if not resume.get("summary"):
-            suggestions.append("Add a professional summary that highlights your relevant skills and experience.")
-
+            suggestions.append("Add a professional summary to highlight your key qualifications.")
         if len(resume.get("skills", [])) < 5:
-            suggestions.append("Add more skills relevant to the job description.")
-
-        achievement_count = sum(len(exp.get("achievements", [])) for exp in resume.get("experience", []))
-        if achievement_count < 3:
-            suggestions.append("Add more achievement statements to your work experience using action verbs and quantifiable results.")
-
-        suggestions.extend(self._check_ats_compatibility(resume))
-
+            suggestions.append("Include more relevant skills to showcase your expertise.")
         return suggestions
 
     def _check_ats_compatibility(self, resume):
@@ -158,11 +202,18 @@ class ResumeOptimizer:
         else:
             return "Needs significant improvements"
 
-    def _generate_resume_boost_paragraph(self, missing_skills):
+    def _generate_resume_boost_paragraph(self, missing_skills, job_description=None):
         if not missing_skills:
             return "Your resume already highlights the core skills needed for this job!"
         skills_sentence = ", ".join(missing_skills[:5])
-        return f"Proficient in {skills_sentence}, with hands-on experience in modern full-stack development practices and cloud-native technologies."
+        prompt = (
+            f"Write a concise, energetic resume summary paragraph that highlights proficiency in the following skills: {skills_sentence}. "
+            f"{'Here is the job description for context: ' + job_description if job_description else ''} "
+            "Do not mention technologies or skills not listed. Focus on making the candidate sound like a strong fit for the job."
+        )
+        response = self._generate_with_gemini(prompt)
+        return response.strip()
+    
 
     def check_ats_compatibility(self, resume):
         issues = self._check_ats_compatibility(resume)

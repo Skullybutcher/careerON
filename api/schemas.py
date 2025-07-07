@@ -34,6 +34,7 @@ class PersonalInfoSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class EducationSchema(BaseModel):
@@ -47,6 +48,7 @@ class EducationSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class ExperienceSchema(BaseModel):
@@ -61,6 +63,7 @@ class ExperienceSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class SkillSchema(BaseModel):
@@ -70,6 +73,7 @@ class SkillSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class ProjectSchema(BaseModel):
@@ -82,6 +86,7 @@ class ProjectSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class AchievementSchema(BaseModel):
@@ -92,6 +97,7 @@ class AchievementSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class ExtracurricularSchema(BaseModel):
@@ -104,6 +110,7 @@ class ExtracurricularSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 class CourseSchema(BaseModel):

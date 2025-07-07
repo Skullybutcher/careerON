@@ -148,22 +148,18 @@ export interface OptimizationRequest {
   optimization_level: 'light' | 'moderate' | 'aggressive';
 }
 
-export interface OptimizationResponse {
-  optimization: {
-    score: number;
-    feedback: string;
-    suggestions: string[];
-    optimized_summary: string;
-    missing_skills: string[];
-    resume_boost_paragraph: string;
-  };
-  improvement_advice: {
-    summary: string;
-    skills: string;
-    projects: string;
-    // Add other relevant fields as needed
-  };
-}
+export type OptimizationResponse = {
+  score: number;
+  feedback: string;
+  suggestions: string[];
+  optimized_summary: string;
+  missing_skills: string[];
+  resume_boost_paragraph: string;
+  summary_advice: string;
+  skills_advice: string;
+  projects_advice: string;
+};
+
 // Resume parsing
 export interface ParsedResume {
   personal_info: PersonalInfo;
