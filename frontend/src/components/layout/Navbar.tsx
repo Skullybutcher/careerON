@@ -15,7 +15,8 @@ import {
   LogOut, 
   User, 
   Menu, 
-  X 
+  X,
+  Briefcase 
 } from 'lucide-react';
 
 export function Navbar() {
@@ -45,7 +46,11 @@ export function Navbar() {
               <Link to="/dashboard" className="text-gray-700 hover:text-brand-600 transition-colors">
                 Dashboard
               </Link>
-              
+              <Link to="/job-recommendations" className="text-gray-700 hover:text-brand-600 transition-colors flex items-center gap-1">
+                <Briefcase className="h-4 w-4" />
+                Job Recommendations
+              </Link>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -57,10 +62,6 @@ export function Navbar() {
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
-                  {/* <DropdownMenuItem onClick={() => navigate('/settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem> */}
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
@@ -113,6 +114,14 @@ export function Navbar() {
                   Dashboard
                 </Link>
                 <Link 
+                  to="/job-recommendations" 
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Briefcase className="h-4 w-4" />
+                  Job Recommendations
+                </Link>
+                <Link 
                   to="/builder" 
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100"
                   onClick={() => setMobileMenuOpen(false)}
@@ -125,13 +134,6 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Profile
-                </Link>
-                <Link 
-                  to="/settings" 
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Settings
                 </Link>
                 <button 
                   onClick={() => {

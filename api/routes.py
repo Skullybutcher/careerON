@@ -27,6 +27,7 @@ from api.schemas import (
     VolunteerWorkSchema, PublicationSchema, ResumeOptimizeRequest,
     UserLogin
 )
+from api.job_recommendation import llm_recommend_jobs
 from services.resume_parser import ResumeParser
 from services.resume_optimizer import ResumeOptimizer
 from services.resume_generator import ResumeGenerator
@@ -868,3 +869,38 @@ def projects_section(resume_id):
             current_app.logger.error(f"Error updating projects for resume {resume_id}: {str(e)}")
             current_app.logger.error(traceback.format_exc())
             return jsonify({"error": "Internal server error"}), 500
+
+
+
+from flask_cors import cross_origin
+
+# Remove job_rec_bp routes to avoid duplicate route registration
+
+from api.job_recommendation import llm_recommend_jobs, bp as job_rec_bp, get_recommended_jobs, run_scraper
+
+from flask import make_response
+from flask_cors import cross_origin
+
+# Instead of registering job_rec_bp blueprint, register its routes directly on api blueprint
+
+@api.route("/recommend", methods=["OPTIONS"])
+@cross_origin(origin='http://localhost:8080', headers=['Content-Type', 'Authorization'])
+def recommend_options():
+    response = make_response('', 204)
+    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
+
+@api.route("/recommend", methods=["POST"])
+@cross_origin(origin='http://localhost:8080', headers=['Content-Type', 'Authorization'])
+def recommend_post():
+    return llm_recommend_jobs()
+
+@api.route("/recommended_jobs.json", methods=["GET"])
+def recommended_jobs_json():
+    return get_recommended_jobs()
+
+@api.route("/run-scraper", methods=["POST"])
+def run_scraper_route():
+    return run_scraper()

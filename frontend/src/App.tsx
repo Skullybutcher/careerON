@@ -10,6 +10,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/Dashboard';
 import ResumeBuilder from './pages/resume-builder/ResumeBuilder';
+import JobRecommendation from './pages/JobRecommendation';
 import ResumeOptimization from './pages/resume-optimization/ResumeOptimization';
 import NotFound from "./pages/NotFound";
 import PrivateRoute from './components/auth/PrivateRoute';
@@ -32,6 +33,12 @@ const App = () => (
               <Route path="/dashboard" element={
                 <PrivateRoute>
                   <Dashboard />
+                </PrivateRoute>
+              } />
+              
+              <Route path="/job-recommendations" element={
+                <PrivateRoute>
+                  <JobRecommendation />
                 </PrivateRoute>
               } />
               

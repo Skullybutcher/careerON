@@ -203,3 +203,15 @@ class Publication(Base):
     description = Column(Text)
 
     resume = relationship("Resume", back_populates="publications")
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    company = Column(String, nullable=False)
+    location = Column(String, nullable=True)
+    salary = Column(Float, nullable=True)
+    # store required_skills as a JSON array of strings
+    required_skills = Column(JSON, nullable=False, default=[])
