@@ -1,131 +1,193 @@
-# Career Opportunities Navigator
+# CareerON - Career Opportunities Navigator
 
-## Project Overview
-The Career Opportunities Navigator is a comprehensive resume management system that helps users create, optimize, and export professional resumes. The application provides:
+## 🚀 Project Overview
 
-- User account management
-- Resume creation with multiple sections
-- Resume parsing from PDF
-- AI-powered resume optimization
-- Professional resume exports in multiple formats
+CareerON is an AI-powered resume builder and optimizer that helps job seekers create, refine, and export professional resumes tailored to specific job roles. With features like PDF resume parsing, ATS compatibility analysis, and Gemini-based optimization, CareerON is a smart assistant for your career.
 
-## Key Features
+---
 
-### Resume Management
-- Create and manage multiple resumes
-- Organize resume sections (personal info, education, experience, etc.)
-- Customize section visibility and order
+## 🔧 Features
 
-### Resume Processing
-- Upload and parse existing resumes (PDF)
-- AI-powered optimization based on job descriptions
-- Export resumes in PDF/HTML with professional templates
+### 🗂️ Resume Management
 
-### User Experience
-- Secure authentication (JWT)
-- Responsive web interface
-- Real-time preview of resume changes
+* Create and manage multiple resumes.
+* Drag-and-drop to reorder resume sections.
+* Toggle visibility for specific resume sections.
 
-## Technology Stack
+### 📄 PDF Resume Parsing
+
+* Upload your existing PDF resume.
+* Extracts structured data: personal info, education, skills, projects, etc.
+* Uses `PyMuPDF` with NLP heuristics for higher accuracy.
+
+### 🧠 AI-Powered Optimization
+
+* Paste a job description and get:
+
+  * Match Score
+  * Missing keywords
+  * Summary optimization
+  * Section-wise advice (Summary, Skills, Projects)
+  * Resume boost paragraph for job-specific tailoring
+* Powered by Gemini 2.5 Flash
+
+### 🚪 Export Options
+
+* Export resumes to PDF using professional templates.
+* Choose between `default` and `modern` HTML-based templates.
+
+### 🛍️ User Authentication
+
+* Secure login and registration
+* JWT-based auth system
+
+---
+
+## 🧰 Tech Stack
 
 ### Backend
-- Python (Flask)
-- SQLAlchemy (ORM)
-- JWT Authentication
-- Resume parsing libraries
-- spaCy NLP library with `en_core_web_sm` model
+
+* Python 3.10+
+* Flask
+* SQLAlchemy ORM
+* PyJWT (Auth)
+* PyMuPDF (PDF parsing)
+* spaCy (NLP)
+* SentenceTransformers (Semantic similarity)
+* Gemini 2.5 Flash (Text generation)
 
 ### Frontend
-- HTML5, CSS3, JavaScript
-- Modern responsive design
-- Interactive resume builder
+
+* Vue.js 3 (Vite + Composition API)
+* TailwindCSS
+* Axios
+* Toast notifications
+* Fully responsive and dynamic
 
 ### Database
-- PostgreSQL (Production-ready)
-  - Database name: `career_navigator`
-- SQLite (Development)
 
-## Installation & Setup
+* PostgreSQL (Production)
+* SQLite (Local development)
 
-### Prerequisites
-- Python 3.8+
-- pip
-- Virtual environment (recommended)
-- PostgreSQL installed and running
-- PostgreSQL database named `career_navigator` created
+---
 
-### Installation Steps
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/career-opportunities-navigator.git
-   cd career-opportunities-navigator
-   ```
+## 📊 Architecture
 
-2. Create and activate virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+```
+Frontend (Vue.js) ↔ Flask API ↔ PostgreSQL
+                            ↕
+                AI Services: Gemini | spaCy | PyMuPDF | SentenceTransformers
+```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-4. Download the spaCy English model:
-   ```bash
-   python -m spacy download en_core_web_sm
-   ```
+## ⚡ Quickstart
 
-5. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration, including database connection details
-   ```
+### 🔄 Clone & Setup Backend
 
-6. Ensure PostgreSQL database `career_navigator` exists:
-   ```bash
-   psql -U yourusername -c "CREATE DATABASE career_navigator;"
-   ```
+```bash
+git clone https://github.com/Skullybutcher/careerON.git
+cd careerON
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+```
 
-## Running the Application
+### ⚖️ Configure Environment
 
-### Development Server
+Copy `.env.example` to `.env` and fill:
+
+```
+FLASK_APP=app.py
+FLASK_ENV=development
+DATABASE_URL=postgresql://username:password@localhost/career_navigator
+GEMINI_API_KEY=your_google_ai_key_here
+SECRET_KEY=your_jwt_secret
+```
+
+### 📝 Create DB
+
+```bash
+psql -U youruser -c "CREATE DATABASE career_navigator;"
+```
+
+### 🚀 Run the App
+
 ```bash
 flask run
-```
-The application will be available at `http://localhost:5000`
-
-### Production Deployment
-For production deployment, consider using:
-- Gunicorn (WSGI server)
-- Nginx (Reverse proxy)
-- PostgreSQL (Database)
-
-## Project Structure
-```
-career-opportunities-navigator/
-├── api/                  # API routes and schemas
-├── database/             # Database models and connection
-├── services/             # Business logic services
-├── static/               # Static files (CSS, JS)
-├── templates/            # HTML templates
-├── app.py                # Main application entry point
-├── config.py             # Configuration settings
-├── requirements.txt      # Python dependencies
-└── README.md             # Project documentation
+# Visit: http://localhost:5000
 ```
 
-## API Documentation
-For detailed API documentation, see [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+---
 
-## Contributing
-Contributions are welcome! Please follow these steps:
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
+## 📊 Folder Structure
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+careerON/
+├── api/               # Flask API routes & schemas
+├── database/          # SQLAlchemy models & db connection
+├── services/          # Resume parsing, generation, optimization
+├── static/            # CSS/JS assets
+├── templates/         # HTML resume templates
+├── config.py          # Env config
+├── app.py             # Entry point
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 📃 Example Usage
+
+### Resume Optimization Endpoint
+
+```http
+POST /resumes/<resume_id>/optimize
+Body: {
+  "job_description": "Paste full JD here"
+}
+```
+
+Response includes:
+
+* `match_score`
+* `missing_skills`
+* `optimized_summary`
+* `summary_advice`, `skills_advice`, `projects_advice`
+* `resume_boost_paragraph`
+
+---
+
+## 💼 Planned Enhancements
+
+* ✏️ OCR-based fallback for non-digital PDFs
+* 🧠 LLM-driven structured resume builder
+* ✨ More export templates and themes
+* 👥 Team mode for collaborative resume editing
+* 🔍 ElasticSearch for job recommendation
+
+---
+
+## 🙌 Contributing
+
+PRs welcome 🚀
+
+1. Fork & clone
+2. Create feature branch
+3. Submit PR with meaningful commit messages
+
+---
+
+
+
+## Ⓜ️ License
+
+MIT - See [LICENSE](LICENSE)
+
+---
+
+## 🔗 Links
+
+* Live app: \[Coming Soon]
+* API Docs: \[docs/README.md]
