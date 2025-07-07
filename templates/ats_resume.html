@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>ATS Friendly Resume</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.4;
+            color: #000;
+            margin: 1in;
+        }
+        h2 {
+            border-bottom: 1px solid #000;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14pt;
+        }
+        p, ul {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 6px;
+        }
+        .section-header {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Personal Information</h2>
+    <p>
+        {{ resume.personal_info.full_name }} • {{ resume.personal_info.email }} • {{ resume.personal_info.phone }} • {{ resume.personal_info.location }}<br />
+        {% if resume.personal_info.linkedin %}LinkedIn: {{ resume.personal_info.linkedin }}<br />{% endif %}
+        {% if resume.personal_info.github %}GitHub: {{ resume.personal_info.github }}<br />{% endif %}
+        {% if resume.personal_info.portfolio %}Portfolio: {{ resume.personal_info.portfolio }}<br />{% endif %}
+    </p>
+
+    <h2>Summary</h2>
+    <p>{{ resume.summary }}</p>
+
+    <h2>Work Experience</h2>
+    {% for exp in resume.experience %}
+        <h3>{{ exp.company }} — {{ exp.position }} ({{ exp.start_date }} – {{ exp.end_date or "Present" }})</h3>
+        <ul>
+            {% for achievement in exp.achievements %}
+                <li>{{ achievement }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+
+    <h2>Education</h2>
+    {% for edu in resume.education %}
+        <p>{{ edu.institution }} — {{ edu.degree }}, {{ edu.field_of_study }} ({{ edu.start_date }} – {{ edu.end_date or "Present" }})</p>
+    {% endfor %}
+
+    <h2>Skills</h2>
+    <ul>
+        {% for skill in resume.skills %}
+            <li>{{ skill.name }}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Projects</h2>
+    {% for project in resume.projects %}
+        <p><strong>{{ project.title }}</strong><br />
+        {{ project.description }}<br />
+        {% if project.technologies %}Technologies: {{ project.technologies | join(", ") }}<br />{% endif %}
+        {% if project.link %}Link: {{ project.link }}<br />{% endif %}
+        </p>
+    {% endfor %}
+</body>
+</html>

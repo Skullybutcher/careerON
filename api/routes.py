@@ -48,8 +48,10 @@ CORS(api, origins=["http://localhost:8080"])
 from flask import send_file
 import io
 
-@api.route("/resumes/<resume_id>/export", methods=["GET", "OPTIONS"])
-def export_resume(resume_id):
+from services.resume_exporter import ResumeExporter
+
+@api.route("/resumes/<resume_id>/export-ats", methods=["GET", "OPTIONS"])
+def export_resume_ats(resume_id):
     from flask import make_response
     import traceback
     try:
@@ -62,16 +64,11 @@ def export_resume(resume_id):
             return response
 
         export_format = request.args.get("format", "pdf")
-        template = request.args.get("template", "default")
 
         if export_format != "pdf":
             response = make_response(jsonify({"error": "Unsupported export format"}), 400)
             response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
             return response
-
-        from flask import render_template
-        import pdfkit
-        import datetime
 
         db = next(get_db())
         resume = db.query(Resume).filter(Resume.id == resume_id).first()
@@ -80,16 +77,6 @@ def export_resume(resume_id):
             response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
             return response
 
-        # Determine visible sections from resume.section_settings
-        visible_sections = set()
-        if resume.section_settings:
-            for section in resume.section_settings:
-                if section.get("visible", True):
-                    visible_sections.add(section.get("name"))
-
-        # Prepare data for template rendering
-        generated_date = datetime.datetime.now().strftime("%B %d, %Y")
-
         # Transform resume data for template to match frontend preview
         def format_date(date_obj):
             if not date_obj:
@@ -97,10 +84,8 @@ def export_resume(resume_id):
             return date_obj.strftime("%b %Y")
 
         def transform_resume(resume):
-            # Convert ORM to dict and add formatted dates and mapped fields
             r = resume.__dict__.copy()
 
-            # Personal info mapping
             if resume.personal_info:
                 pi = resume.personal_info.__dict__.copy()
                 pi['linkedin_url'] = pi.get('linkedin')
@@ -110,7 +95,6 @@ def export_resume(resume_id):
             else:
                 r['personal_info'] = None
 
-            # Format dates in experience
             if resume.experience:
                 exp_list = []
                 for exp in resume.experience:
@@ -122,7 +106,6 @@ def export_resume(resume_id):
             else:
                 r['experience'] = []
 
-            # Format dates in education
             if resume.education:
                 edu_list = []
                 for edu in resume.education:
@@ -134,7 +117,6 @@ def export_resume(resume_id):
             else:
                 r['education'] = []
 
-            # Format skills (map level to proficiency if needed)
             if resume.skills:
                 skills_list = []
                 for skill in resume.skills:
@@ -144,7 +126,6 @@ def export_resume(resume_id):
             else:
                 r['skills'] = []
 
-            # Format projects (map link to url, format dates)
             if resume.projects:
                 proj_list = []
                 for proj in resume.projects:
@@ -157,7 +138,6 @@ def export_resume(resume_id):
             else:
                 r['projects'] = []
 
-            # Format certifications (format dates)
             if resume.certifications:
                 cert_list = []
                 for cert in resume.certifications:
@@ -168,7 +148,6 @@ def export_resume(resume_id):
             else:
                 r['certifications'] = []
 
-            # Format achievements (format dates)
             if resume.achievements:
                 ach_list = []
                 for ach in resume.achievements:
@@ -179,7 +158,6 @@ def export_resume(resume_id):
             else:
                 r['achievements'] = []
 
-            # Format extracurriculars (format dates)
             if resume.extracurriculars:
                 extra_list = []
                 for extra in resume.extracurriculars:
@@ -189,7 +167,6 @@ def export_resume(resume_id):
             else:
                 r['extracurriculars'] = []
 
-            # Format courses (format dates)
             if resume.courses:
                 course_list = []
                 for course in resume.courses:
@@ -200,7 +177,6 @@ def export_resume(resume_id):
             else:
                 r['courses'] = []
 
-            # Format volunteer work (format dates)
             if resume.volunteer_work:
                 vol_list = []
                 for vol in resume.volunteer_work:
@@ -210,7 +186,6 @@ def export_resume(resume_id):
             else:
                 r['volunteer_work'] = []
 
-            # Format publications (format dates)
             if resume.publications:
                 pub_list = []
                 for pub in resume.publications:
@@ -224,25 +199,16 @@ def export_resume(resume_id):
 
         transformed_resume = transform_resume(resume)
 
-        # Render the HTML template with transformed resume data and visible sections
-        rendered_html = render_template(
-            f"modern.html" if template == "modern" else "default.html",
-            resume=transformed_resume,
-            visible_sections=visible_sections,
-            generated_date=generated_date
-        )
+        exporter = ResumeExporter(ats_mode=True)
+        pdf_bytes = exporter.export_resume_pdf(transformed_resume)
 
-        # Generate PDF from rendered HTML using pdfkit
-        pdf_bytes = pdfkit.from_string(rendered_html, False)
-
-        # Return PDF as response with CORS headers
         from flask import Response
         response = Response(pdf_bytes, mimetype='application/pdf')
-        response.headers['Content-Disposition'] = f'attachment; filename=resume_{resume_id}.pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=resume_{resume_id}_ats.pdf'
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
         return response
     except Exception as e:
-        current_app.logger.error(f"Error exporting resume {resume_id}: {str(e)}")
+        current_app.logger.error(f"Error exporting ATS resume {resume_id}: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         response = make_response(jsonify({"error": "Internal server error"}), 500)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
@@ -292,7 +258,9 @@ def parse_resume_pdf():
         parsed_data = parser.parse_from_pdf(pdf_file)
         return jsonify(parsed_data), 200
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+       
     
 
 

@@ -148,6 +148,7 @@ def extract_job_titles(recommendations_json):
 
 from utils.linkedin_ws import scrape_linkedin_jobs
 
+
 def scrape_all_titles(titles, location):
     """
     Scrape jobs for all titles and aggregate results.
