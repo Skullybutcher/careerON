@@ -27,14 +27,7 @@ class ResumeOptimizer:
             self.nlp = spacy.load("en_core_web_sm")
 
         self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-<<<<<<< HEAD
-        self.hf_client = InferenceClient("HuggingFaceH4/zephyr-7b-beta", token=os.getenv("HF_TOKEN"))
-=======
-        self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
-        self.model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
->>>>>>> a2ae794 (Fix: optimized resume optimization)
+
 
     def optimize_for_job(self, resume, job_description):
         resume_text = self._get_resume_text(resume)
