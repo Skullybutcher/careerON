@@ -191,4 +191,5 @@ export interface ParsedResume {
   achievements?: Achievement[];
   certifications?: Certification[];
   [key: string]: any;
+  summary?: Summary[];
 }

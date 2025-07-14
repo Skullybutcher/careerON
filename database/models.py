@@ -26,7 +26,7 @@ class Resume(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"))
     title = Column(String, nullable=False)
-    summary = Column(Text)
+    summary = Column(Text,nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     section_settings = Column(JSON, default=list)  # Store section visibility and order

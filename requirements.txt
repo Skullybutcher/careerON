@@ -28,4 +28,8 @@ webdriver_manager
 numpy>=1.24,<2.0
 rapidfuzz
 weasyprint
-#install gtk
+#install gtk from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+pdfservices-sdk==4.2.0   
+doctly
+markdown 
+tempfile

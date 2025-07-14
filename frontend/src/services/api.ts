@@ -46,9 +46,25 @@ export const authService = {
   },
 };
 
+// Define an interface for resume data
+export interface ResumeData {
+  title: string;
+  summary: string;
+  personal_info: PersonalInfo;
+  education: Education[];
+  experience: Experience[];
+  skills: Skill[];
+  projects?: Project[];
+  achievements?: Achievement[];
+  certifications?: Certification[];
+  section_settings?: SectionSetting[];
+  user_id?: string;
+  // Add any other fields your backend expects
+}
+
 // Resume services
 export const resumeService = {
-  createResume: async (data: any) => {
+  createResume: async (data: ResumeData) => {
     const response = await api.post('/resumes', data);
     return response.data;
   },
@@ -99,7 +115,7 @@ export const resumeSectionService = {
     const response = await api.get(`/resumes/${resumeId}/sections/${sectionName}`);
     return response.data;
   },
-  updateSection: async (resumeId: string, sectionName: string, data: any) => {
+  updateSection: async (resumeId: string, sectionName: string, data: string) => {
     const response = await api.put(`/resumes/${resumeId}/sections/${sectionName}`, data);
     return response.data;
   },

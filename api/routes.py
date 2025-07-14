@@ -249,6 +249,7 @@ def parse_resume_pdf():
         return jsonify({"error": "No file uploaded"}), 400
 
     pdf_file = request.files['resume_file']
+    pdf_file.stream.seek(0)
 
     if pdf_file.filename == '':
         return jsonify({"error": "Empty filename"}), 400
@@ -256,10 +257,37 @@ def parse_resume_pdf():
     try:
         parser = ResumeParser()
         parsed_data = parser.parse_from_pdf(pdf_file)
-        return jsonify(parsed_data), 200
+
+        # Create resume object here with parsed summary
+        db = next(get_db())
+
+        new_resume = Resume(
+            id=str(uuid.uuid4()),
+            title="Parsed Resume",
+            user_id=None,  # Assign if available
+            summary=parsed_data.get("summary", ""),
+            section_settings=[
+                {"name": "personal_info", "visible": True, "order": 1},
+                {"name": "summary", "visible": True, "order": 2},
+                {"name": "education", "visible": True, "order": 3},
+                {"name": "experience", "visible": True, "order": 4},
+                {"name": "skills", "visible": True, "order": 5},
+                {"name": "projects", "visible": True, "order": 6},
+            ]
+        )
+        db.add(new_resume)
+        db.commit()
+        db.refresh(new_resume)
+
+        return jsonify({
+            "resume_id": new_resume.id,
+            **parsed_data
+        }), 200
+
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
        
     
 
@@ -585,7 +613,7 @@ def personal_info_section(resume_id):
             if not resume or not resume.personal_info:
                 return jsonify({"error": "Personal info not found"}), 404
             personal_info = PersonalInfoSchema.from_orm(resume.personal_info)
-            return jsonify(personal_info.dict()), 200
+            return jsonify(personal_info.__dict__), 200
         except Exception as e:
             current_app.logger.error(f"Error fetching personal info for resume {resume_id}: {str(e)}")
             return jsonify({"error": "Internal server error"}), 500
@@ -601,7 +629,9 @@ def personal_info_section(resume_id):
             # Clean or remove invalid email if present
 
             email = data.get("email")
-            if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            if email == "":
+                data["email"] = None
+            elif email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
                 current_app.logger.warning(f"Invalid email detected: {email}")
                 data["email"] = None  # or optionally: del data["email"]
 
@@ -632,8 +662,9 @@ def summary_section(resume_id):
     if request.method == "GET":
         try:
             resume = db.query(Resume).filter(Resume.id == resume_id).first()
-            if not resume or not resume.summary:
-                return jsonify({"error": "Summary not found"}), 404
+            if not resume:
+                return jsonify({"error": "Resume not found"}), 404
+            
             return jsonify({"summary": resume.summary}), 200
         except Exception as e:
             current_app.logger.error(f"Error fetching summary for resume {resume_id}: {str(e)}")

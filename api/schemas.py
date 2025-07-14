@@ -25,7 +25,7 @@ class UserResponse(BaseModel):
 # Resume section schemas
 class PersonalInfoSchema(BaseModel):
     full_name: str
-    email: EmailStr
+    email:Optional[EmailStr]
     phone: Optional[str] = None
     location: Optional[str] = None
     linkedin: Optional[str] = None
