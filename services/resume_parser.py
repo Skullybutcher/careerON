@@ -32,12 +32,13 @@ class ResumeParser:
             subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
             self.nlp = spacy.load("en_core_web_sm")
 
-        self.client = doctly.Client(api_key='sk-p16vXStEJvVDEABn2V-juHCz3P6SCqfdUmf1CspCiYDKE9muvoQ-dKQMJ2Hs4eUdj91j')
+            #sk-p16vXStEJvVDEABn2V-juHCz3P6SCqfdUmf1CspCiYDKE9muvoQ-dKQMJ2Hs4eUdj91j
+        self.client = doctly.Client(api_key='')
         self.adobe_credentials = ServicePrincipalCredentials(
             # client_id=os.getenv("PDF_SERVICES_CLIENT_ID"),
             # client_secret=os.getenv("PDF_SERVICES_CLIENT_SECRET")
-            client_id="ed85ae5d832f42278e1ff4dfc5d2f201",
-            client_secret="p8e-1IX54bleddsKDS1vJgY5pZoa7ltFOMf7"
+            #"ed85ae5d832f42278e1ff4dfc5d2f201",
+            #"p8e-1IX54bleddsKDS1vJgY5pZoa7ltFOMf7"
         )
 
     def parse_from_pdf(self, pdf_file):
