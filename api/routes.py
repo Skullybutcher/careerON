@@ -724,6 +724,7 @@ def education_section(resume_id):
 
 @api.route("/resumes/<resume_id>/sections/experience", methods=["GET", "PUT"])
 def experience_section(resume_id):
+    from datetime import datetime
     db = next(get_db())
     if request.method == "GET":
         try:
@@ -758,6 +759,23 @@ def experience_section(resume_id):
             resume.experience.clear()
             # Add new experience entries
             for exp_data in data:
+                # Convert empty or invalid date strings to None
+                if 'start_date' in exp_data:
+                    if not exp_data['start_date']:
+                        exp_data['start_date'] = None
+                    else:
+                        try:
+                            exp_data['start_date'] = datetime.strptime(exp_data['start_date'], '%Y-%m-%d').date()
+                        except Exception:
+                            exp_data['start_date'] = None
+                if 'end_date' in exp_data:
+                    if not exp_data['end_date']:
+                        exp_data['end_date'] = None
+                    else:
+                        try:
+                            exp_data['end_date'] = datetime.strptime(exp_data['end_date'], '%Y-%m-%d').date()
+                        except Exception:
+                            exp_data['end_date'] = None
                 exp_obj = Experience(**exp_data)
                 resume.experience.append(exp_obj)
                 db.add(exp_obj)
