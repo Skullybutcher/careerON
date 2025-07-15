@@ -1,175 +1,185 @@
 #!/usr/bin/env python3
 """
-LinkedIn Job & Internship Scraper
+LinkedIn Job & Internship Scraper (API-based)
 
-This script uses Selenium to scrape LinkedIn job (or internship) listings based on user input:
-- Keywords (e.g. "Python Engineer" or "Data Science Internship")
-- Location (city, region, country)
-- Time posted filter (last 24 hrs, last week, last month)
-- Job type filter (Full-time, Part-time, Contract, Internship, etc.)
-
-Outputs a JSON file with a list of job entries including:
-- Title
-- Company
-- Location
-- Date posted
-- Job link
-
-Requirements:
-- Python 3.x
-- selenium
-- webdriver-manager
-- beautifulsoup4
-
-Usage:
-$ pip install selenium webdriver-manager beautifulsoup4
-$ python linkedin_job_scraper.py
+This script uses LinkedIn's Guest API endpoint to fetch job listings directly,
+replacing the previous Selenium-based approach with lightweight HTTP calls.
 """
-
 import json
-import time
-import urllib.parse
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
+
+import requests
+import time
+import logging
 from bs4 import BeautifulSoup
 
-# Map user-friendly filters to LinkedIn URL parameters
-time_mapping = {
-    '24h': '1',      # Past 24 hours
-    'week': '2',     # Past week
-    'month': '3',    # Past month
-    'any': '4'       # Any time
-}
-job_type_mapping = {
-    'full-time': 'F',
-    'part-time': 'P',
-    'contract': 'C',
-    'temporary': 'T',
-    'volunteer': 'V',
-    'internship': 'I'
-}
+logger = logging.getLogger(__name__)
 
-def get_user_input():
-    keywords = input("Enter job keywords (e.g. Python Engineer or Data Science Internship): ").strip()
-    location = input("Enter job location (city, region, country): ").strip()
-    print("Time filters: 24h, week, month, any")
-    time_filter = input("Choose time filter [24h/week/month/any]: ").strip().lower()
-    print("Job types: full-time, part-time, contract, temporary, volunteer, internship")
-    job_type = input("Choose job type (or leave blank for all): ").strip().lower()
-
-    tf = time_mapping.get(time_filter, '1')
-    jt = job_type_mapping.get(job_type, '')
-    return keywords, location, tf, jt
-
-
-def build_linkedin_url(keywords, location, time_param, job_type_param):
-    base = "https://www.linkedin.com/jobs/search/"
+def scrape_jobs_stream(
+    keywords: str,
+    location: str,
+    time_filter: str,
+    job_type: str,
+    max_results: int = 60,
+    page_size: int = 25,
+    work_type: str = '',
+    experience: str = ''
+):
+    """
+    Generator: fetch jobs page-by-page and yield each job immediately.
+    """
+    base_url = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
     params = {
         'keywords': keywords,
         'location': location,
-        'f_TP': time_param,
+        'start': 0,
+        'count': page_size,
     }
-    if job_type_param:
-        params['f_JT'] = job_type_param
-    query = urllib.parse.urlencode(params)
-    return f"{base}?{query}"
+
+    # map filters (same as before)...
+    tf_map = {'24h':'r86400','week':'r604800','month':'r2592000'}
+    if time_filter in tf_map:
+        params['f_TPR'] = tf_map[time_filter]
+
+    jt_map = {
+        'full-time':'F','part-time':'P','contract':'C',
+        'temporary':'T','volunteer':'V','internship':'I'
+    }
+    if job_type.lower() in jt_map:
+        params['f_JT'] = jt_map[job_type.lower()]
+
+    if work_type in {'1','2','3'}:
+        params['f_WT'] = work_type
+    if experience in {'1','2','3','4','5','6'}:
+        params['f_EX'] = experience
+
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (X11; Linux x86_64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/112.0.0.0 Safari/537.36'
+        )
+    }
+
+    count = 0
+    while count < max_results:
+        try:
+            resp = requests.get(base_url, params=params, headers=headers, timeout=5)
+        except requests.RequestException as e:
+            logger.warning(f"[API] Request failed: {e}")
+            break
+
+        if resp.status_code != 200 or not resp.text.strip():
+            logger.warning(f"[API] Bad response ({resp.status_code}) or empty.")
+            break
+
+        text = resp.text.strip()
+        # Try JSON first
+        batch = []
+        if text.startswith('{'):
+            try:
+                data = resp.json()
+                for job in data.get('elements', []):
+                    batch.append({
+                        'title':    job.get('title'),
+                        'company':  job.get('companyName'),
+                        'location': job.get('formattedLocation'),
+                        'posted':   job.get('listedAt'),
+                        'link':     "https://linkedin.com" + job.get('jobPostingUrl','')
+                    })
+            except ValueError:
+                logger.info("[API] JSON parse failed, fallback to HTML")
+
+        if not batch:
+            # HTML fallback
+            soup = BeautifulSoup(text, 'html.parser')
+            for li in soup.select('li'):
+                h3 = li.select_one('h3')
+                h4 = li.select_one('h4')
+                a  = li.select_one('a')
+                if not (h3 and h4 and a):
+                    continue
+                # print(h3, h4, a)
+                loc = li.select_one('.job-search-card__location')
+                t   = li.select_one('time')
+                href = a.get('href')
+                if href and not href.startswith('http'):
+                    href = "https://linkedin.com" + href
+                batch.append({
+                    'title':    h3.get_text(strip=True),
+                    'company':  h4.get_text(strip=True),
+                    'location': loc.get_text(strip=True) if loc else None,
+                    'posted':   (t.get('datetime') if t and t.has_attr('datetime') else (t.get_text(strip=True) if t else None)),
+                    'link':     href
+                })
+
+        if not batch:
+            break
+
+        for job in batch:
+            if count >= max_results:
+                return
+            yield job
+            count += 1
+
+        params['start'] += page_size
+        time.sleep(0.1)
 
 
-def scrape_listings(driver):
-    # Accept cookies banner if present
-    try:
-        accept_btn = driver.find_element(By.XPATH, "//button[contains(., 'Accept') and contains(., 'cookies')]")
-        accept_btn.click()
-        time.sleep(1)
-    except Exception:
-        pass
+def get_user_input():
+    """
+    Prompt the user for search criteria.
+    Returns:
+        tuple: (keywords, location, time_filter, job_type, max_results)
+    """
+    keywords = input("Enter job keywords (e.g. Python Engineer or Data Science Internship): ").strip()
+    location = input("Enter location (city, region, country): ").strip()
+    time_filter = input("Enter time filter ('24h', 'week', 'month' or 'any'): ").strip().lower() or 'any'
+    job_type = input(
+        "Enter job type ('full-time', 'part-time', 'contract', 'temporary', 'volunteer', 'internship' or blank): "
+    ).strip().lower()
+    max_results_input = input("Enter max results [default: 100]: ").strip()
+    max_results = int(max_results_input) if max_results_input.isdigit() else 100
+    return keywords, location, time_filter, job_type, max_results
 
-    # Scroll through the results container to load all jobs
-    try:
-        container = driver.find_element(By.CSS_SELECTOR, 'ul.jobs-search__results-list')
-        last_height = driver.execute_script("return arguments[0].scrollHeight", container)
-        while True:
-            driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", container)
-            time.sleep(2)
-            new_height = driver.execute_script("return arguments[0].scrollHeight", container)
-            if new_height == last_height:
-                break
-            last_height = new_height
-    except Exception:
-        # Fallback to scrolling the window
-        last_height = driver.execute_script("return document.body.scrollHeight")
-        while True:
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
-            last_height = new_height
-
-    # Parse listings
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
-    cards = soup.select('ul.jobs-search__results-list li')
+def scrape_linkedin_jobs(keywords, location, time_filter='any', job_type='', max_results=100):
+    """
+    Fetch job listings via the scraper_api.stream generator.
+    Args:
+        keywords (str): Search keywords.
+        location (str): Job location.
+        time_filter (str): '24h', 'week', 'month', or 'any'.
+        job_type (str): Type of job.
+        max_results (int): Maximum number of jobs to fetch.
+    Returns:
+        list: A list of job dictionaries with keys: title, company, location, date_posted, link.
+    """
     listings = []
-    for card in cards:
-        title_elem = card.select_one('h3.base-search-card__title')
-        title = title_elem.get_text(strip=True) if title_elem else None
-        company_elem = card.select_one('h4.base-search-card__subtitle')
-        company = company_elem.get_text(strip=True) if company_elem else None
-        loc_elem = card.select_one('span.job-search-card__location')
-        location_text = loc_elem.get_text(strip=True) if loc_elem else None
-        date_elem = card.select_one('time')
-        date_posted = date_elem['datetime'] if date_elem and date_elem.has_attr('datetime') else None
-        link_elem = card.select_one('a.base-card__full-link')
-        link = link_elem['href'] if link_elem else None
-        if title and link:
-            listings.append({
-                'title': title,
-                'company': company,
-                'location': location_text,
-                'date_posted': date_posted,
-                'link': link
-            })
-    return listings
-
-def scrape_linkedin_jobs(keywords, location, time_filter='any', job_type=''):
-    """
-    Scrape LinkedIn jobs for given keywords and location.
-    """
-    from selenium.webdriver.chrome.options import Options
-
-    tf = time_mapping.get(time_filter, '4')  # default to 'any'
-    jt = job_type_mapping.get(job_type, '')
-    search_url = build_linkedin_url(keywords, location, tf, jt)
-
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.get(search_url)
-
-    listings = scrape_listings(driver)
-    driver.quit()
-
+    for job in scrape_jobs_stream(
+        keywords=keywords,
+        location=location,
+        time_filter=time_filter,
+        job_type=job_type,
+        max_results=max_results
+    ):
+        listings.append({
+            'title': job.get('title'),
+            'company': job.get('company'),
+            'location': job.get('location'),
+            'date_posted': job.get('posted'),
+            'link': job.get('link')
+        })
     return listings
 
 def main():
-    keywords, location, time_param, job_type_param = get_user_input()
-    search_url = build_linkedin_url(keywords, location, time_param, job_type_param)
-    print(f"Navigating to: {search_url}")
+    keywords, location, time_filter, job_type, max_results = get_user_input()
+    if not keywords or not location:
+        print("Error: 'keywords' and 'location' are required.")
+        return
 
-    service = Service(ChromeDriverManager(version="138.0.7204.100").install())
-    driver = webdriver.Chrome(service=service)
-    driver.get(search_url)
-
-    listings = scrape_listings(driver)
-    driver.quit()
+    listings = scrape_linkedin_jobs(
+        keywords, location, time_filter, job_type, max_results
+    )
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f"linkedin_jobs_{timestamp}.json"
