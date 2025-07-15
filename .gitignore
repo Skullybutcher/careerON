@@ -1,7 +1,0 @@
-venv
-.env
-.conda
-__pycache__/
-__pycache__/config.cpython-38.pyc
-
-.git

@@ -1,4 +1,0 @@
-Flask
-selenium
-webdriver-manager
-beautifulsoup4
