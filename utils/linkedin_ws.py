@@ -164,7 +164,7 @@ def main():
     search_url = build_linkedin_url(keywords, location, time_param, job_type_param)
     print(f"Navigating to: {search_url}")
 
-    service = Service(ChromeDriverManager().install())
+    service = Service(ChromeDriverManager(version="138.0.7204.100").install())
     driver = webdriver.Chrome(service=service)
     driver.get(search_url)
 

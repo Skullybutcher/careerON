@@ -3,5 +3,5 @@ venv
 .conda
 __pycache__/
 __pycache__/config.cpython-38.pyc
-
+node_modules/
 .git
