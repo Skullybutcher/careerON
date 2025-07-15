@@ -32,7 +32,6 @@ export default function ResumeOptimization() {
         const data = await resumeService.getResumeDetails(resumeId);
         setResume(data);
       } catch (err) {
-        console.error('Error fetching resume:', err);
         toast({
           title: 'Error',
           description: 'Failed to load resume. Please try again.',
@@ -54,13 +53,12 @@ export default function ResumeOptimization() {
       setOptimizationResult(result);
       toast({
         title: 'Optimization complete',
-        description: 'Your resume has been analyzed against the job description.',
+        description: 'Your resume has been analyzed.',
       });
     } catch (error) {
-      console.error('Error optimizing resume:', error);
       toast({
         title: 'Optimization failed',
-        description: 'There was an error optimizing your resume',
+        description: 'There was an error optimizing your resume.',
         variant: 'destructive',
       });
     } finally {
@@ -82,24 +80,18 @@ export default function ResumeOptimization() {
 
   if (isLoading) {
     return (
-      <div className="container px-4 py-8 mx-auto max-w-7xl">
-        <div className="h-screen flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-brand-400 border-t-transparent rounded-full animate-spin"></div>
-        </div>
+      <div className="h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-brand-400 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (!resume) {
     return (
-      <div className="container px-4 py-8 mx-auto max-w-7xl">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-4">Resume Not Found</h2>
-          <p className="text-gray-600 mb-6">The resume you're looking for doesn't exist or you don't have access to it.</p>
-          <Button onClick={() => navigate('/dashboard')} className="bg-brand-600 hover:bg-brand-700">
-            Back to Dashboard
-          </Button>
-        </div>
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold mb-4">Resume Not Found</h2>
+        <p className="text-gray-600 mb-6">The resume you're looking for doesn't exist.</p>
+        <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
       </div>
     );
   }
@@ -114,35 +106,6 @@ export default function ResumeOptimization() {
           <h1 className="text-2xl font-bold">Optimize Resume</h1>
           <p className="text-gray-500 text-sm">Analyze your resume against a job description</p>
         </div>
-        <Button
-          className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={async () => {
-            if (!resumeId) return;
-            try {
-              const response = await fetch(`http://localhost:5000/api/resumes/${resumeId}/export-ats?format=pdf`, {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
-                }
-              });
-              if (!response.ok) throw new Error('Failed to download PDF');
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `resume_${resumeId}_ats.pdf`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              window.URL.revokeObjectURL(url);
-            } catch (error) {
-              console.error('Error exporting ATS PDF:', error);
-              alert('Failed to export ATS PDF. Please try again.');
-            }
-          }}
-        >
-          Export ATS PDF
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -150,10 +113,6 @@ export default function ResumeOptimization() {
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Paste Job Description</h2>
-              <p className="text-gray-600 mb-4">
-                Paste the job description you're applying for. Our AI will analyze your resume against it and suggest improvements.
-              </p>
-
               <Textarea
                 placeholder="Paste the full job description here..."
                 className="min-h-[200px] resize-none"
@@ -161,8 +120,7 @@ export default function ResumeOptimization() {
                 onChange={(e) => setJobDescription(e.target.value)}
                 disabled={isProcessing}
               />
-
-              <div className="space-y-2 mt-4">
+              <div className="mt-4 space-y-2">
                 <label className="text-sm font-medium">Optimization Level</label>
                 <Select
                   value={optimizationLevel}
@@ -173,13 +131,12 @@ export default function ResumeOptimization() {
                     <SelectValue placeholder="Select optimization level" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light">Light - Minor suggestions</SelectItem>
-                    <SelectItem value="moderate">Moderate - Balanced optimization</SelectItem>
-                    <SelectItem value="aggressive">Aggressive - Comprehensive changes</SelectItem>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="moderate">Moderate</SelectItem>
+                    <SelectItem value="aggressive">Aggressive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <Button
                 onClick={handleOptimize}
                 className="w-full bg-brand-600 hover:bg-brand-700 mt-4"
@@ -201,7 +158,6 @@ export default function ResumeOptimization() {
                   Optimization Results
                 </h2>
 
-                {/* Score + Feedback */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <span className="font-medium">Match Score</span>
@@ -216,7 +172,6 @@ export default function ResumeOptimization() {
                   <p className="mt-2 text-sm text-gray-600">{optimizationResult.optimization.feedback}</p>
                 </div>
 
-                {/* Suggestions */}
                 {optimizationResult.optimization.suggestions.length > 0 && (
                   <div>
                     <h3 className="font-medium text-lg">Improvement Suggestions</h3>
@@ -231,9 +186,8 @@ export default function ResumeOptimization() {
                   </div>
                 )}
 
-                {/* Detailed Advice */}
                 <div className="mt-6">
-                  <h3 className="font-medium text-lg">Detailed Improvement Advice</h3>
+                  <h3 className="font-medium text-lg">Detailed Advice</h3>
                   <div className="space-y-4 text-sm text-gray-800 bg-gray-50 p-4 rounded border">
                     {optimizationResult.improvement_advice?.summary_advice && (
                       <div>
