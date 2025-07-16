@@ -87,17 +87,24 @@ export function ResumeUploader() {
       
       // 2. Create a new resume
       const resumeData = {
-        user_id: user.id,
-        title: file.name.replace('.pdf', '') || 'Imported Resume',
-        summary: parsedData.personal_info?.summary || '',
-        section_settings: [
-          { name: 'personal_info', visible: true, order: 1 },
-          { name: 'summary', visible: true, order: 2 },
-          { name: 'education', visible: true, order: 3 },
-          { name: 'experience', visible: true, order: 4 },
-          { name: 'skills', visible: true, order: 5 },
-        ],
-      };
+  user_id: user.id,
+  title: file.name.replace('.pdf', '') || 'Imported Resume',
+  summary: parsedData.summary || '',
+  personal_info: parsedData.personal_info || {},
+  education: parsedData.education || [],
+  experience: parsedData.experience || [],
+  skills: parsedData.skills || [],
+  projects: parsedData.projects || [],
+  achievements: parsedData.achievements || [],
+  certifications: parsedData.certifications || [],
+  section_settings: [
+    { name: 'personal_info', visible: true, order: 1 },
+    { name: 'summary', visible: true, order: 2 },
+    { name: 'education', visible: true, order: 3 },
+    { name: 'experience', visible: true, order: 4 },
+    { name: 'skills', visible: true, order: 5 },
+  ],
+};
       
       const newResume = await resumeService.createResume(resumeData);
       
@@ -116,6 +123,10 @@ export function ResumeUploader() {
       
       if (parsedData.skills && parsedData.skills.length > 0) {
         await resumeSectionService.updateSection(newResume.id, 'skills', parsedData.skills);
+      }
+
+      if(parsedData.summary && parsedData.summary.length > 0) {
+        await resumeSectionService.updateSection(newResume.id, 'summary', { summary: parsedData.summary });
       }
       
       toast({

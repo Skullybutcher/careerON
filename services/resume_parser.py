@@ -1,242 +1,255 @@
-import PyPDF2
+import os
 import re
 import spacy
-from datetime import datetime
 import fitz  # PyMuPDF
-import easyocr
-# import pytesseract
-# from PIL import Image
-# import pdf2image
+import markdown
+from bs4 import BeautifulSoup
+from datetime import datetime
+from dotenv import load_dotenv
+import doctly
+import tempfile
+
+from adobe.pdfservices.operation.auth.service_principal_credentials import ServicePrincipalCredentials
+from adobe.pdfservices.operation.exception.exceptions import ServiceApiException, ServiceUsageException, SdkException
+from adobe.pdfservices.operation.pdf_services_media_type import PDFServicesMediaType
+from adobe.pdfservices.operation.io.cloud_asset import CloudAsset
+from adobe.pdfservices.operation.io.stream_asset import StreamAsset
+from adobe.pdfservices.operation.pdf_services import PDFServices
+from adobe.pdfservices.operation.pdfjobs.jobs.extract_pdf_job import ExtractPDFJob
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_element_type import ExtractElementType
+from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_pdf_params import ExtractPDFParams
+from adobe.pdfservices.operation.pdfjobs.result.extract_pdf_result import ExtractPDFResult
+
+# Load environment variables
+load_dotenv()
+
 class ResumeParser:
     def __init__(self):
-        # Load spaCy model
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except:
-            # If model not found, download it
             import subprocess
             subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
             self.nlp = spacy.load("en_core_web_sm")
-        # Initialize easyocr reader for English
-        self.ocr_reader = easyocr.Reader(['en'])
-    
+
+            
+        self.client = doctly.Client(api_key='DOCTLY_API_KEY')
+        self.adobe_credentials = ServicePrincipalCredentials(
+             client_id=os.getenv("PDF_SERVICES_CLIENT_ID"),
+             client_secret=os.getenv("PDF_SERVICES_CLIENT_SECRET")
+            
+        )
+
     def parse_from_pdf(self, pdf_file):
-        """Extract text and structure from a PDF resume using text layer with OCR fallback."""
+        text = ""
     
-    # First try to extract text from digital (non-scanned) PDF
-        text = self._extract_text_from_pdf(pdf_file)
-    
-    # Fallback to OCR if text is too short or empty
-        if len(text.strip()) < 100:
-            print("Fallback to OCR parsing...")
-            text = self.extract_text_from_ocr(pdf_file)
-    
-    # Basic cleanup of OCR artifacts
-        text = self._clean_text(text)
-
-    # Parse sections from structured text
-        sections = self._identify_sections(text)
-    
-    # Extract data from each section
-        result = {
-        "personal_info": self._extract_personal_info(sections.get("personal_info", "")),
-        "summary": sections.get("summary", ""),
-        "education": self._extract_education(sections.get("education", "")),
-        "experience": self._extract_experience(sections.get("experience", "")),
-        "skills": self._extract_skills(sections.get("skills", "")),
-        "projects": self._extract_projects(sections.get("projects", ""))
-    }
-        return result
-
-
-    def extract_text_from_ocr(self, pdf_file):
-        """Extract text from PDF using EasyOCR"""
+    # --- Step 1: Try Doctly ---
         try:
-            pdf_file.seek(0)
-            import fitz  # PyMuPDF
-            doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-            full_text = ""
-            for page in doc:
-                pix = page.get_pixmap()
-                img_bytes = pix.tobytes("png")
-                result = self.ocr_reader.readtext(img_bytes, detail=0)
-                full_text += "\n".join(result) + "\n"
-            return full_text
+        # Doctly requires a file path string, not a file object
+            if isinstance(pdf_file, str):
+                text = self.client.process(pdf_file)
+            else:
+                raise TypeError("Doctly expects file path, not a file object.")
         except Exception as e:
-            print(f"EasyOCR PDF parsing failed: {e}")
+            print(f"Doctly parsing failed: {e}")
+
+    # --- Step 2: Adobe fallback ---
+        if not text or len(text.strip()) < 50:
+            try:
+                text = self.extract_text_using_adobe_api(pdf_file)
+            except Exception as e:
+                print(f"Adobe parsing failed: {e}")
+
+    # --- Step 3: PyMuPDF fallback ---
+        if not text or len(text.strip()) < 50:
+            try:
+                text = self._extract_text_from_pdf(pdf_file)
+            except Exception as e:
+                print(f"PyMuPDF failed: {e}")
+    
+    # --- Step 4: Final fail-safe ---
+        if not text or len(text.strip()) < 10:
+            print("All text extraction methods failed.")
+            return {}
+
+    # --- Proceed to section parsing ---
+        try:
+            sections = self._identify_sections(text)
+            result = {
+            "personal_info": self._extract_personal_info(sections.get("personal_info", "")),
+            "summary": sections.get("summary", ""),
+            "education": self._extract_education(sections.get("education", "")),
+            "experience": self._extract_experience(sections.get("experience", "")),
+            "skills": self._extract_skills(sections.get("skills", "")),
+            "projects": self._extract_projects(sections.get("projects", ""))
+        }
+            return result
+        except Exception as e:
+            print(f"Parsing sections failed: {e}")
+        return {}
+
+
+    def extract_text_using_adobe_api(self, pdf_file):
+        try:
+            from io import BytesIO
+            import zipfile
+            import json
+
+            pdf_file.seek(0)
+            input_stream = pdf_file.read()
+            pdf_services = PDFServices(credentials=self.adobe_credentials)
+            input_asset = pdf_services.upload(input_stream=input_stream, mime_type=PDFServicesMediaType.PDF)
+            extract_pdf_job = ExtractPDFJob(
+                input_asset=input_asset,
+                extract_pdf_params=ExtractPDFParams(elements_to_extract=[ExtractElementType.TEXT])
+            )
+            location = pdf_services.submit(extract_pdf_job)
+            result: ExtractPDFResult = pdf_services.get_job_result(location, ExtractPDFResult)
+            stream_asset: StreamAsset = pdf_services.get_content(result.get_result().get_resource())
+            zip_data = BytesIO(stream_asset.get_input_stream())
+            with zipfile.ZipFile(zip_data, 'r') as zip_ref:
+                for name in zip_ref.namelist():
+                    if name.endswith("structuredData.json"):
+                        text_json = zip_ref.read(name).decode("utf-8")
+                        return self._extract_text_from_adobe_json(json.loads(text_json))
+        except Exception as e:
+            print(f"Adobe API parsing failed: {e}")
             return ""
-        
+
+    def _extract_text_from_adobe_json(self, json_data):
+        """Flatten text from Adobe structured JSON"""
+        return "\n".join(
+            element.get("Text", "")
+            
+            for element in json_data.get("elements", [])
+            if element.get("Type") == "text"
+            
+        )
+
     def _extract_text_from_pdf(self, pdf_file):
-        """Try extracting text from a digital PDF using PyMuPDF (no OCR)."""
         try:
             pdf_file.seek(0)
             doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
             return "\n".join(page.get_text() for page in doc)
         except Exception as e:
-            print(f"PDF text extraction failed: {e}")
-        return ""
+            print(f"Fallback PDF parsing failed: {e}")
+            return ""
+
     
-
-    def _clean_text(self, text):
-        """Clean OCR-ed text for common misrecognitions."""
-        fixes = {
-        "gmaillcom": "gmail.com",
-        "gmail,com": "gmail.com",
-        "GPA-": "GPA:",
-        "GPA—": "GPA:",
-        "J JvasLEt": "JavaScript",
-        "scftvire": "software",
-        "oper": "developer",
-        "eb": "web",
-        "clcud": "cloud",
-        "A\"ST": "AWS"
-    }
-        for wrong, right in fixes.items():
-            text = text.replace(wrong, right)
-        return text
-
-
     def _extract_projects(self, projects_text):
         """Extract project information from text"""
         projects = []
-        
-        # Using regex to find project entries
-        project_pattern = r"(.*?)(?:\n|$)(?:\s*-\s*(.*?))?(?:\n|$)(?:\s*Technologies:(.*?))?(?:\n|$)(?:\s*Link:(.*?))?(?:\n|$)"
-        matches = re.finditer(project_pattern, projects_text)
-        
-        for match in matches:
-            if match.group(1).strip():
-                project = {
-                    "title": match.group(1).strip(),
-                    "description": match.group(2).strip() if match.group(2) else "",
-                    "technologies": [tech.strip() for tech in match.group(3).split(",")] if match.group(3) else [],
-                    "link": match.group(4).strip() if match.group(4) else ""
-                }
-                projects.append(project)
-        
+    
+        lines = [line.strip() for line in projects_text.split('\n') if line.strip()]
+        current_project = {"title": "", "description": "", "technologies": [], "link": ""}
+
+        for line in lines:
+            if line.lower().startswith("technologies:"):
+                current_project["technologies"] = [t.strip() for t in line[len("technologies:"):].split(",")]
+            elif line.lower().startswith("link:"):
+                current_project["link"] = line[len("link:"):].strip()
+            elif current_project["title"] == "":
+                current_project["title"] = line
+            elif current_project["description"] == "":
+                current_project["description"] = line
+            else:
+            # New project start
+                projects.append(current_project)
+                current_project = {"title": line, "description": "", "technologies": [], "link": ""}
+
+        if current_project["title"]:
+            projects.append(current_project)
+
         return projects
+
     
     
     def _identify_sections(self, text):
-        """Identify different sections in the resume"""
-        # Common section headers
         section_headers = [
             "personal information", "contact", "profile", "summary", "objective",
             "education", "experience", "work experience", "employment", "skills",
             "technical skills", "projects", "achievements", "certifications",
             "extracurricular", "volunteer", "publications", "courses"
         ]
-        
-        # Initialize sections dictionary
-        sections = {}
-        
-        # Split text into lines
-        lines = text.split('\n')
-        current_section = "personal_info"  # Default section
+        sections, lines = {}, text.split('\n')
+        current_section = "personal_info"
         section_content = ""
-        
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-                
-            # Check if line is a section header
             is_header = False
             for header in section_headers:
-                if header.lower() in line.lower() and len(line) < 30:  # Assuming headers are short
-                    # Save previous section
+                if line.strip().lower().startswith(header.lower()):
                     sections[current_section] = section_content.strip()
-                    
-                    # Start new section
-                    if "personal" in header.lower() or "contact" in header.lower():
+                    if "personal" in header or "contact" in header:
                         current_section = "personal_info"
-                    elif "summary" in header.lower() or "objective" in header.lower() or "profile" in header.lower():
+                    elif "summary" in header or "objective" in header or "profile" in header:
                         current_section = "summary"
-                    elif "education" in header.lower():
+                    elif "education" in header:
                         current_section = "education"
-                    elif "experience" in header.lower() or "employment" in header.lower():
+                    elif "experience" in header or "employment" in header:
                         current_section = "experience"
-                    elif "skill" in header.lower():
+                    elif "skill" in header:
                         current_section = "skills"
-                    elif "project" in header.lower():
+                    elif "project" in header:
                         current_section = "projects"
-                    elif "achievement" in header.lower():
-                        current_section = "achievements"
-                    elif "certification" in header.lower():
-                        current_section = "certifications"
-                    elif "extracurricular" in header.lower():
-                        current_section = "extracurriculars"
-                    elif "volunteer" in header.lower():
-                        current_section = "volunteer_work"
-                    elif "publication" in header.lower():
-                        current_section = "publications"
-                    elif "course" in header.lower():
-                        current_section = "courses"
                     else:
                         current_section = header.lower().replace(" ", "_")
-                    
                     section_content = ""
                     is_header = True
                     break
-            
             if not is_header:
                 section_content += line + "\n"
-        
-        # Save last section
+
         sections[current_section] = section_content.strip()
-        
         return sections
-    
+
     def _extract_personal_info(self, personal_info_text):
-        """Extract personal information"""
         personal_info = {
-            "full_name": "",
-            "email": "",
-            "phone": "",
-            "location": "",
-            "linkedin": "",
-            "github": "",
-            "portfolio": ""
-        }
-        
-        # Extract email
-        email_match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", personal_info_text)
-        if email_match:
-            personal_info["email"] = email_match.group(0)
-        
-        # Extract phone
-        phone_match = re.search(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", personal_info_text)
-        if phone_match:
-            personal_info["phone"] = phone_match.group(0)
-        
-        # Extract LinkedIn
-        linkedin_match = re.search(r"linkedin\.com/in/[a-zA-Z0-9_-]+", personal_info_text)
+        "full_name": "",
+        "email": "",
+        "phone": "",
+        "location": "",
+        "linkedin": "",
+        "github": "",
+        "portfolio": ""
+    }
+
+        lines = [line.strip() for line in personal_info_text.split("\n") if line.strip()]
+
+    # Case 1: "Name • Email • Phone • Location"
+        if lines and "•" in lines[0]:
+            parts = [p.strip() for p in lines[0].split("•")]
+            for part in parts:
+                if "@" in part:
+                    personal_info["email"] = part
+                elif re.search(r"\d{10}", part):
+                    personal_info["phone"] = part
+                elif not personal_info["full_name"]:
+                    personal_info["full_name"] = part
+                else:
+                    personal_info["location"] = part
+
+    # ✅ Case 2: 4 lines — name, email, phone, location
+        elif len(lines) >= 4:
+            personal_info["full_name"] = lines[0]
+        if "@" in lines[1]: personal_info["email"] = lines[1]
+        if re.search(r"\d{10}", lines[2]): personal_info["phone"] = lines[2]
+        personal_info["location"] = lines[3]
+
+    # Scan for LinkedIn and GitHub
+        full_text = "\n".join(lines)
+        linkedin_match = re.search(r"linkedin\.com/in/[a-zA-Z0-9_-]+", full_text)
+        github_match = re.search(r"github\.com/[a-zA-Z0-9_-]+", full_text)
         if linkedin_match:
             personal_info["linkedin"] = "https://" + linkedin_match.group(0)
-        
-        # Extract GitHub
-        github_match = re.search(r"github\.com/[a-zA-Z0-9_-]+", personal_info_text)
         if github_match:
-            personal_info["github"] = "https://" + github_match.group(0)
-        
-        # Extract name (this is more complex and less reliable)
-        lines = personal_info_text.split('\n')
-        if lines and not any(char in lines[0] for char in "@./:"):  # Avoid URLs and emails
-            personal_info["full_name"] = lines[0].strip()
-        
-        # Extract location (also complex)
-        location_patterns = [
-            r"\b[A-Z][a-z]+,\s*[A-Z]{2}\b",  # City, State
-            r"\b[A-Z][a-z]+,\s*[A-Z][a-z]+\b"  # City, Country
-        ]
-        
-        for pattern in location_patterns:
-            location_match = re.search(pattern, personal_info_text)
-            if location_match:
-                personal_info["location"] = location_match.group(0)
-                break
-        
+                personal_info["github"] = "https://" + github_match.group(0)
+
         return personal_info
+
     
     def _extract_education(self, education_text):
         """Extract education information"""
@@ -274,6 +287,22 @@ class ResumeParser:
                     education["field_of_study"] = degree_match.group(3).strip()
             
             # Look for dates
+            # Handle formats like: "JNTUH — Bachelors, Computer Science (2019-06-10 – 2023-07-19)"
+            alt_date_pattern = r"\((\d{4}-\d{2}-\d{2})\s*[–-]\s*(\d{4}-\d{2}-\d{2}|Present|present|Current|current)\)"
+            for line in lines:
+                alt_date_match = re.search(alt_date_pattern, line)
+                if alt_date_match:
+                    try:
+                        education["start_date"] = datetime.strptime(alt_date_match.group(1), "%Y-%m-%d").date()
+                    except ValueError:
+                        pass
+                    if alt_date_match.group(2).lower() not in ["present", "current"]:
+                        try:
+                            education["end_date"] = datetime.strptime(alt_date_match.group(2), "%Y-%m-%d").date()
+                        except ValueError:
+                            pass
+
+
             date_pattern = r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)[\s,]+(\d{4})\s*[-–]\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)[\s,]+(\d{4}|Present|present|Current|current)"
             for line in lines:
                 date_match = re.search(date_pattern, line)
@@ -394,40 +423,29 @@ class ResumeParser:
         
         return experience_entries
     
-    def _extract_skills(self, skills_text):
-        """Extract skills"""
+    def _extract_skills(self, text):
         skills = []
-        
-        # Simple split by comma or newline
-        skill_items = re.split(r",|\n", skills_text)
-        
-        for item in skill_items:
+        for item in re.split(r",|\n", text):
             item = item.strip()
             if item:
-                # Try to determine skill category
-                category = "technical"  # Default
-                if any(lang in item.lower() for lang in ["english", "spanish", "french", "german", "chinese", "japanese"]):
+                category = "technical"
+                if any(lang in item.lower() for lang in ["english", "french"]):
                     category = "language"
-                elif any(soft in item.lower() for soft in ["communication", "leadership", "teamwork", "problem solving", "critical thinking"]):
+                elif any(soft in item.lower() for soft in ["communication", "teamwork"]):
                     category = "soft"
-                
-                skills.append({
-                    "name": item,
-                    "category": category,
-                    "level": "intermediate"  # Default level, hard to determine from text
-                })
-        
+                skills.append({"name": item, "category": category, "level": "intermediate"})
         return skills
     
 
   
 
-#for testing
-# if __name__ == "__main__":
-#     parser = ResumeParser()
-#     with open(r"C:\RRP2\software developer resume.pdf", "rb") as f:  # Replace with your test PDF path
-#         result = parser.parse_from_pdf(f)
-#         print("Parsed Resume Data:")
-#         print(result)
-#         #print("Extracted Email:", result.get("personal_info", {}).get("email"))
-        
+# for testing
+if __name__ == "__main__":
+    parser = ResumeParser()
+    
+    #  For Doctly
+    result = parser.parse_from_pdf("C:/RRP2/software developer resume.pdf")
+    print("Parsed:", result)
+
+    result = parser.parse_from_pdf("C:/RRP2/ats_version.pdf")
+    print("Parsed:", result)

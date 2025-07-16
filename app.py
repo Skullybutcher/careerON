@@ -2,7 +2,9 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from api.routes import api
 from database.db import Base, engine
-
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 def create_app():
     app = Flask(__name__)

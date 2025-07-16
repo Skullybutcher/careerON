@@ -53,3 +53,8 @@ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1
 
 # Development & Utilities
 python-dateutil==2.9.0.post0
+
+pdfservices-sdk==4.2.0   
+doctly
+markdown 
+

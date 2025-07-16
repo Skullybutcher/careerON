@@ -11,6 +11,9 @@ from rapidfuzz import fuzz  # Replaces fuzzywuzzy
 from google import genai
 from google.genai import types
 
+from markdown import markdown
+from bs4 import BeautifulSoup
+
 
 class ResumeOptimizer:
     def __init__(self):
@@ -139,7 +142,24 @@ class ResumeOptimizer:
             "Avoid irrelevant technologies. Be concise and persuasive."
         )
         return self._generate_with_gemini(prompt).strip()
+    
+    def clean_markdown(self,md_text):
+        html = markdown(md_text)
+        soup = BeautifulSoup(html, "html.parser")
+    # Convert <ul>, <li>, <strong>, etc. into readable text
+        for li in soup.find_all("li"):
+            li.insert_before("• ")
+            li.insert_after("\n")
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+        for strong in soup.find_all("strong"):
+            strong.string = f"{strong.get_text(strip=True)}"
 
+        cleaned = soup.get_text(separator="\n").strip()
+        return cleaned
+        
+        
+    
     def _generate_with_gemini(self, prompt):
         cfg = types.GenerateContentConfig(
             thinking_config=types.ThinkingConfig(thinking_budget=0),
@@ -149,8 +169,10 @@ class ResumeOptimizer:
             top_k=40
         )
         response = self.client.models.generate_content(model="gemini-2.5-flash", contents=prompt, config=cfg)
-        return response.text
-
+        raw_output = response.text
+        cleaned_output = self.clean_markdown(raw_output)
+        return cleaned_output
+    
     def _build_advice_prompt(self, resume, ats_issues, missing_keywords):
         def custom_serializer(obj):
             if isinstance(obj, (date, datetime)):
@@ -160,28 +182,30 @@ class ResumeOptimizer:
         resume_json = json.dumps(resume, indent=2, default=custom_serializer)
 
         return f"""
-You are a resume coach AI. Provide suggestions to improve this resume:
+You are an expert resume coach AI. Analyze the candidate's resume and provide specific, actionable feedback based on ATS optimization principles.
 
-ATS Issues:
-{ats_issues}
+**Context:**
+- Resume structure (JSON): {resume_json}
+- ATS Parsing Issues: {ats_issues}
+- Missing Keywords from JD: {missing_keywords}
 
-Missing Keywords:
-{missing_keywords}
+**Instructions:**
+1. Suggest an improved version of the candidate's summary.
+2. Suggest ways to improve the Skills section.
+3. Suggest improvements to the Projects section if available.
+4. Do not repeat the original content. Only provide rewritten or enhanced versions.
+5. Use clear and concise language suitable for ATS systems.
+6. Return plain advice. Do not use markdown formatting.
 
-Resume JSON:
-{resume_json}
+**Format:**
+Summary Advice: <revised summary>
 
-Output:
-Summary Advice:
-...
+Skills Advice: <bullet points or paragraph>
 
-Skills Advice:
-...
+Projects Advice: <if applicable>
 
-Projects Advice:
-...
-"""
-
+Respond only with improved suggestions. Do not explain your reasoning.
+        """
     def _extract_advice_from_response(self, response):
         def extract(section):
             match = re.search(rf"{section}:\s*(.*?)(\n[A-Z][a-z]+ Advice:|$)", response, re.DOTALL)
