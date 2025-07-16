@@ -4,62 +4,78 @@
 
 1. [Overview](#overview)
 2. [Authentication](#authentication)
-3. [Configuration](#configuration)
+3. [Base Configuration](#base-configuration)
 4. [Rate Limiting](#rate-limiting)
 5. [API Endpoints](#api-endpoints)
    - [Authentication & Users](#authentication--users)
-   - [Resumes](#resumes)
+   - [Resume Management](#resume-management)
    - [Resume Sections](#resume-sections)
    - [Resume Services](#resume-services)
    - [Job Recommendations](#job-recommendations)
+   - [Utility Endpoints](#utility-endpoints)
 6. [Data Schemas](#data-schemas)
 7. [Error Handling](#error-handling)
 8. [Usage Examples](#usage-examples)
-9. [Setup and Installation](#setup-and-installation)
 
 ## Overview
 
-The careerON API is a Flask-based REST API that provides comprehensive resume management, optimization, and job recommendation services. The API enables users to create, manage, and optimize their resumes while receiving personalized job recommendations based on their skills and experience.
+The careerON API is a comprehensive Flask-based REST API that powers an AI-driven career platform. It provides resume management, intelligent PDF parsing, AI-powered optimization, and personalized job recommendations through advanced machine learning models.
 
 **Base URL:** `http://localhost:5000/api`
 
 **Content-Type:** `application/json`
 
-**CORS:** Enabled for `http://localhost:8080`
+**CORS:** Enabled for `http://localhost:8080` with support for credentials
+
+**Features:**
+- 🔐 JWT-based authentication
+- 📄 Multi-engine PDF parsing (Adobe, Doctly, PyMuPDF)
+- 🤖 AI-powered resume optimization (NVIDIA LLM, Google Gemini)
+- 🎯 Intelligent job recommendations
+- 📊 ATS compatibility analysis
+- 🎨 Professional PDF export
+- 🔒 Rate limiting and security
 
 ## Authentication
 
-The API uses JWT (JSON Web Tokens) for authentication with the following configuration:
+The API uses JWT (JSON Web Tokens) for secure authentication:
+
 - **Algorithm:** HS256
 - **Token Expiration:** 30 minutes
 - **Header Format:** `Authorization: Bearer <token>`
+- **Required for:** All endpoints except `/login`, `/users` (registration), and `/test`
 
-## Configuration
+## Base Configuration
 
-The following environment variables are required:
+**Environment Variables:**
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SECRET_KEY` | JWT secret key | "dev-secret-key" |
-| `SQLALCHEMY_DATABASE_URI` | PostgreSQL connection string | "postgresql://ayush:ayush@localhost:5432/career_navigator" |
-| `HF_TOKEN` | Hugging Face API token | - |
-| `DEVICE` | Processing device (cpu/gpu) | "cpu" |
-| `NVIDIA_API_URL` | NVIDIA API endpoint | "https://integrate.api.nvidia.com/v1/chat/completions" |
-| `NVIDIA_API_KEY` | NVIDIA API key | Required for job recommendations |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SECRET_KEY` | JWT secret key | ✅ |
+| `SQLALCHEMY_DATABASE_URI` | PostgreSQL connection string | ✅ |
+| `NVIDIA_API_KEY` | NVIDIA API for AI features | ✅ |
+| `NVIDIA_API_URL` | NVIDIA API endpoint | ✅ |
+| `HF_TOKEN` | Hugging Face token | ✅ |
+| `PDF_SERVICES_CLIENT_ID` | Adobe PDF Services ID | ⚠️ |
+| `PDF_SERVICES_CLIENT_SECRET` | Adobe PDF Services secret | ⚠️ |
+| `DOCTLY_API_KEY` | Doctly PDF parsing API | ⚠️ |
+| `DEVICE` | Processing device (cpu/gpu) | ⚠️ |
 
 ## Rate Limiting
 
-The API implements rate limiting with the following defaults:
+The API implements rate limiting for security:
+
 - **Global Limits:** 200 requests per day, 50 requests per hour
 - **Login Endpoint:** 5 requests per minute
-- **Storage:** In-memory (development)
+- **Storage:** In-memory (configurable)
+- **Headers:** Rate limit info included in response headers
 
 ## API Endpoints
 
 ### Authentication & Users
 
 #### POST /login
-Authenticate user and receive JWT token.
+Authenticate user and receive JWT access token.
 
 **Rate Limit:** 5 per minute
 
@@ -67,7 +83,7 @@ Authenticate user and receive JWT token.
 ```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "securePassword123"
 }
 ```
 
@@ -76,66 +92,71 @@ Authenticate user and receive JWT token.
 {
   "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
   "token_type": "bearer",
+  "expires_in": 1800,
   "user": {
-    "id": "user-uuid",
+    "id": "user-uuid-here",
     "name": "John Doe",
     "email": "user@example.com",
-    "created_at": "2024-01-01T00:00:00Z"
+    "created_at": "2024-01-15T10:30:00Z"
   }
 }
 ```
 
 **Error Responses:**
-- `400` - Invalid input data
+- `400` - Invalid request data
 - `401` - Invalid credentials
+- `429` - Rate limit exceeded
 
 #### POST /users
-Create a new user account.
+Register a new user account.
 
 **Request Body:**
 ```json
 {
   "name": "John Doe",
-  "email": "user@example.com",
-  "password": "password123"
+  "email": "john.doe@example.com",
+  "password": "securePassword123"
 }
 ```
 
 **Response (201):**
 ```json
 {
-  "id": "user-uuid",
+  "id": "user-uuid-here",
   "name": "John Doe",
-  "email": "user@example.com",
-  "created_at": "2024-01-01T00:00:00Z"
+  "email": "john.doe@example.com",
+  "created_at": "2024-01-15T10:30:00Z"
 }
 ```
 
 **Error Responses:**
 - `400` - Invalid user data
-- `409` - User with email already exists
+- `409` - User already exists
 
 #### GET /test
-Health check endpoint.
+Health check endpoint (no authentication required).
 
 **Response (200):**
 ```json
 {
-  "message": "API is working"
+  "message": "API is working!",
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
-### Resumes
+### Resume Management
 
 #### POST /resumes
-Create a new resume.
+Create a new resume for a user.
+
+**Authentication:** Required
 
 **Request Body:**
 ```json
 {
-  "user_id": "user-uuid",
+  "user_id": "user-uuid-here",
   "title": "Software Engineer Resume",
-  "summary": "Experienced software engineer with 5+ years of experience...",
+  "summary": "Experienced software engineer with 5+ years in Python and React development...",
   "section_settings": [
     {
       "name": "personal_info",
@@ -143,7 +164,7 @@ Create a new resume.
       "order": 1
     },
     {
-      "name": "summary", 
+      "name": "summary",
       "visible": true,
       "order": 2
     }
@@ -154,59 +175,49 @@ Create a new resume.
 **Response (201):**
 ```json
 {
-  "id": "resume-uuid",
-  "user_id": "user-uuid",
+  "id": "resume-uuid-here",
+  "user_id": "user-uuid-here",
   "title": "Software Engineer Resume",
   "summary": "Experienced software engineer...",
-  "section_settings": [...],
-  "personal_info": null,
-  "education": [],
-  "experience": [],
-  "skills": [],
-  "projects": [],
-  "achievements": [],
-  "extracurriculars": [],
-  "courses": [],
-  "certifications": [],
-  "volunteer_work": [],
-  "publications": [],
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "section_settings": [...]
 }
 ```
 
 #### GET /resumes/{resume_id}
-Retrieve a specific resume by ID.
+Retrieve a specific resume with all its sections.
+
+**Authentication:** Required
 
 **Response (200):**
 ```json
 {
-  "id": "resume-uuid",
-  "user_id": "user-uuid",
+  "id": "resume-uuid-here",
+  "user_id": "user-uuid-here",
   "title": "Software Engineer Resume",
   "summary": "Experienced software engineer...",
-  "section_settings": [...],
-  "personal_info": {...},
+  "personal_info": {
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+1-555-0123",
+    "location": "San Francisco, CA",
+    "linkedin": "https://linkedin.com/in/johndoe",
+    "github": "https://github.com/johndoe",
+    "portfolio": "https://johndoe.dev"
+  },
   "education": [...],
   "experience": [...],
   "skills": [...],
   "projects": [...],
-  "achievements": [...],
-  "extracurriculars": [...],
-  "courses": [...],
-  "certifications": [...],
-  "volunteer_work": [...],
-  "publications": [...],
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "section_settings": [...]
 }
 ```
 
-**Error Responses:**
-- `404` - Resume not found
-
 #### DELETE /resumes/{resume_id}
-Delete a specific resume.
+Delete a specific resume and all its sections.
+
+**Authentication:** Required
 
 **Response (200):**
 ```json
@@ -218,82 +229,31 @@ Delete a specific resume.
 #### GET /users/{user_id}/resumes
 Get all resumes for a specific user.
 
+**Authentication:** Required
+
 **Response (200):**
 ```json
 [
   {
     "id": "resume-uuid-1",
-    "user_id": "user-uuid",
     "title": "Software Engineer Resume",
-    "summary": "...",
-    "section_settings": [...],
-    "personal_info": {...},
-    "education": [...],
-    "experience": [...],
-    "skills": [...],
-    "projects": [...],
-    "achievements": [...],
-    "extracurriculars": [...],
-    "courses": [...],
-    "certifications": [...],
-    "volunteer_work": [...],
-    "publications": [...],
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z"
+    "summary": "Experienced developer...",
+    "created_at": "2024-01-15T10:30:00Z",
+    "personal_info": {...}
+  },
+  {
+    "id": "resume-uuid-2",
+    "title": "Data Scientist Resume",
+    "summary": "ML specialist with...",
+    "created_at": "2024-01-16T14:20:00Z",
+    "personal_info": {...}
   }
 ]
 ```
 
-#### POST /resumes/{resume_id}/optimize
-Optimize resume for a specific job description.
-
-**Request Body:**
-```json
-{
-  "job_description": "We are looking for a Senior Software Engineer with experience in Python, React, and cloud technologies..."
-}
-```
-
-**Response (200):**
-```json
-{
-  "optimization": {
-    "score": 0.85,
-    "suggestions": [
-      "Add more Python-specific achievements",
-      "Highlight cloud technology experience"
-    ],
-    "missing_skills": ["AWS", "Docker"],
-    "keyword_matches": {
-      "python": 0.9,
-      "react": 0.8,
-      "cloud": 0.6
-    }
-  },
-  "improvement_advice": {
-    "enhanced_summary": "Updated summary with better keyword optimization...",
-    "skill_recommendations": ["Consider adding AWS certification"],
-    "experience_enhancements": ["Quantify your Python development impact"]
-  }
-}
-```
-
-#### GET /resumes/{resume_id}/export
-Export resume as PDF.
-
-**Query Parameters:**
-- `format` (optional): Export format, default "pdf"
-- `template` (optional): Template style ("default" or "modern"), default "default"
-
-**Response (200):**
-- **Content-Type:** `application/pdf`
-- **Content-Disposition:** `attachment; filename=resume_{resume_id}.pdf`
-
-**Error Responses:**
-- `400` - Unsupported export format
-- `404` - Resume not found
-
 ### Resume Sections
+
+All section endpoints follow the pattern: `/resumes/{resume_id}/sections/{section_name}`
 
 #### GET/PUT /resumes/{resume_id}/sections/personal_info
 Manage personal information section.
@@ -303,7 +263,7 @@ Manage personal information section.
 {
   "full_name": "John Doe",
   "email": "john.doe@example.com",
-  "phone": "+1-555-123-4567",
+  "phone": "+1-555-0123",
   "location": "San Francisco, CA",
   "linkedin": "https://linkedin.com/in/johndoe",
   "github": "https://github.com/johndoe",
@@ -317,7 +277,7 @@ Manage resume summary section.
 **PUT Request Body:**
 ```json
 {
-  "summary": "Experienced software engineer with 5+ years of experience in full-stack development..."
+  "summary": "Experienced software engineer with 5+ years of expertise in full-stack development..."
 }
 ```
 
@@ -326,17 +286,19 @@ Manage education section.
 
 **PUT Request Body:**
 ```json
-[
-  {
-    "institution": "University of California, Berkeley",
-    "degree": "Bachelor of Science",
-    "field_of_study": "Computer Science",
-    "start_date": "2018-08-01",
-    "end_date": "2022-05-01",
-    "gpa": 3.8,
-    "description": "Relevant coursework: Data Structures, Algorithms, Software Engineering"
-  }
-]
+{
+  "education": [
+    {
+      "institution": "Stanford University",
+      "degree": "Bachelor of Science",
+      "field_of_study": "Computer Science",
+      "start_date": "2018-09-01",
+      "end_date": "2022-06-15",
+      "gpa": 3.8,
+      "description": "Relevant coursework: Data Structures, Algorithms, Machine Learning"
+    }
+  ]
+}
 ```
 
 #### GET/PUT /resumes/{resume_id}/sections/experience
@@ -344,21 +306,24 @@ Manage work experience section.
 
 **PUT Request Body:**
 ```json
-[
-  {
-    "company": "Tech Corp",
-    "position": "Senior Software Engineer",
-    "location": "San Francisco, CA",
-    "start_date": "2022-06-01",
-    "end_date": null,
-    "current": true,
-    "description": "Lead development of microservices architecture...",
-    "achievements": [
-      "Reduced API response time by 40%",
-      "Led team of 5 engineers"
-    ]
-  }
-]
+{
+  "experience": [
+    {
+      "company": "Tech Innovations Inc.",
+      "position": "Senior Software Engineer",
+      "location": "San Francisco, CA",
+      "start_date": "2022-07-01",
+      "end_date": null,
+      "current": true,
+      "description": "Lead development of microservices architecture...",
+      "achievements": [
+        "Improved system performance by 40%",
+        "Led team of 5 developers",
+        "Implemented CI/CD pipeline"
+      ]
+    }
+  ]
+}
 ```
 
 #### GET/PUT /resumes/{resume_id}/sections/skills
@@ -366,18 +331,20 @@ Manage skills section.
 
 **PUT Request Body:**
 ```json
-[
-  {
-    "name": "Python",
-    "level": "Expert",
-    "category": "Programming Languages"
-  },
-  {
-    "name": "React",
-    "level": "Advanced",
-    "category": "Frontend Frameworks"
-  }
-]
+{
+  "skills": [
+    {
+      "name": "Python",
+      "category": "Programming Languages",
+      "proficiency": "Expert"
+    },
+    {
+      "name": "React",
+      "category": "Frontend Frameworks",
+      "proficiency": "Advanced"
+    }
+  ]
+}
 ```
 
 #### GET/PUT /resumes/{resume_id}/sections/projects
@@ -385,55 +352,121 @@ Manage projects section.
 
 **PUT Request Body:**
 ```json
-[
-  {
-    "title": "E-commerce Platform",
-    "description": "Built a full-stack e-commerce platform using React and Node.js",
-    "technologies": ["React", "Node.js", "MongoDB", "AWS"],
-    "start_date": "2023-01-01",
-    "end_date": "2023-06-01",
-    "link": "https://github.com/johndoe/ecommerce"
-  }
-]
+{
+  "projects": [
+    {
+      "name": "AI Resume Optimizer",
+      "description": "Machine learning application that optimizes resumes for ATS systems...",
+      "technologies": ["Python", "TensorFlow", "Flask", "React"],
+      "link": "https://github.com/johndoe/resume-optimizer",
+      "start_date": "2023-01-01",
+      "end_date": "2023-06-30"
+    }
+  ]
+}
 ```
 
 ### Resume Services
 
 #### POST /resumes/parse
-Parse resume data from uploaded PDF file.
+Upload and parse a PDF resume to extract structured data.
 
-**Request:**
-- **Content-Type:** `multipart/form-data`
-- **Form Field:** `resume_file` (PDF file)
+**Authentication:** Required
+
+**Request:** Multipart form data
+- `file`: PDF file (required)
 
 **Response (200):**
 ```json
 {
   "personal_info": {
     "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "+1-555-123-4567"
+    "email": "john@example.com",
+    "phone": "+1-555-0123"
   },
+  "summary": "Experienced software engineer...",
   "education": [...],
   "experience": [...],
   "skills": [...],
-  "summary": "Extracted summary from PDF..."
+  "projects": [...]
 }
 ```
 
-**Error Responses:**
-- `400` - No file uploaded or empty filename
-- `500` - PDF parsing error
+**Parsing Methods (in order of priority):**
+1. **Doctly API** - Professional PDF parsing service
+2. **Adobe PDF Services** - Enterprise-grade text extraction
+3. **PyMuPDF** - Fallback local parsing
+
+#### POST /resumes/{resume_id}/optimize
+Optimize resume content for a specific job description using AI.
+
+**Authentication:** Required
+
+**Request Body:**
+```json
+{
+  "job_description": "We are seeking a Senior Python Developer with experience in Django, React, and AWS. The ideal candidate will have 5+ years of experience in building scalable web applications..."
+}
+```
+
+**Response (200):**
+```json
+{
+  "score": 0.78,
+  "feedback": "Good match with room for improvement",
+  "suggestions": {
+    "skills": [
+      "Add AWS experience to your skills section",
+      "Highlight Django projects more prominently"
+    ],
+    "experience": [
+      "Quantify your impact with specific metrics",
+      "Emphasize scalability achievements"
+    ]
+  },
+  "optimized_summary": "Results-driven Senior Python Developer with 5+ years of experience building scalable web applications using Django and React...",
+  "missing_skills": ["AWS", "Django", "Microservices"],
+  "resume_boost_paragraph": "To better align with this Senior Python Developer position, consider highlighting your experience with cloud technologies like AWS..."
+}
+```
+
+**AI Models Used:**
+- **NVIDIA LLM API** - Advanced text generation and analysis
+- **Google Gemini** - Content enhancement and suggestions
+- **SentenceTransformers** - Semantic similarity scoring
+- **spaCy** - Natural language processing
+
+#### GET /resumes/{resume_id}/export-ats
+Export resume as ATS-compliant PDF.
+
+**Authentication:** Required
+
+**Query Parameters:**
+- `format`: Export format (default: "pdf")
+
+**Response:** PDF file stream
+
+**Headers:**
+- `Content-Type`: application/pdf
+- `Content-Disposition`: attachment; filename="resume.pdf"
 
 ### Job Recommendations
 
 #### POST /recommend
 Get personalized job recommendations based on user profile.
 
+**Authentication:** Required
+
 **Request Body:**
 ```json
 {
-  "user_id": "user-uuid"
+  "user_id": "user-uuid-here",
+  "preferences": {
+    "location": "San Francisco, CA",
+    "job_type": "full-time",
+    "remote": true,
+    "salary_min": 100000
+  }
 }
 ```
 
@@ -441,315 +474,421 @@ Get personalized job recommendations based on user profile.
 ```json
 {
   "recommendations": [
-    "Senior Software Engineer",
-    "Full Stack Developer",
-    "Backend Engineer",
+    "Senior Python Developer",
+    "Full Stack Engineer",
+    "Backend Software Engineer",
     "DevOps Engineer",
-    "Technical Lead"
-  ]
+    "Machine Learning Engineer"
+  ],
+  "match_scores": [0.92, 0.88, 0.85, 0.82, 0.79],
+  "generated_at": "2024-01-15T10:30:00Z"
 }
 ```
 
-**Error Responses:**
-- `400` - Missing user_id
-- `500` - Missing NVIDIA_API_KEY
-- `502` - Failed to fetch user resumes or LLM API call failed
-
 #### GET /recommended_jobs.json
-Get cached job recommendations from file.
+Get cached job recommendations data.
 
-**Response (200):**
-```json
-[
-  {
-    "title": "Senior Software Engineer",
-    "company": "Tech Corp",
-    "location": "San Francisco, CA",
-    "salary": 150000,
-    "description": "We are looking for a senior software engineer...",
-    "url": "https://example.com/job/123"
-  }
-]
-```
+**Authentication:** Required
+
+**Response (200):** Array of job listings with details
 
 #### POST /run-scraper
-Run job scraper to fetch latest job postings.
+Trigger LinkedIn job scraping for fresh job data.
+
+**Authentication:** Required
 
 **Request Body:**
 ```json
 {
-  "user_id": "user-uuid",
-  "location": "San Francisco, CA"
+  "keywords": ["python developer", "software engineer"],
+  "location": "San Francisco",
+  "job_type": "full-time",
+  "max_results": 50
 }
 ```
 
 **Response (200):**
 ```json
 {
-  "recommended_jobs": [
-    {
-      "title": "Senior Software Engineer",
-      "company": "Tech Corp",
-      "location": "San Francisco, CA",
-      "description": "...",
-      "url": "..."
-    }
-  ]
+  "status": "started",
+  "job_id": "scraper-task-uuid",
+  "estimated_time": "2-5 minutes"
 }
 ```
+
+### Utility Endpoints
+
+#### OPTIONS /recommend
+CORS preflight request for job recommendations.
+
+#### OPTIONS /resumes/{resume_id}/optimize
+CORS preflight request for resume optimization.
+
+#### OPTIONS /resumes/{resume_id}/export-ats
+CORS preflight request for resume export.
 
 ## Data Schemas
 
-### User Schemas
+### User Schema
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+}
 
-#### UserCreate
-```json
-{
-  "name": "string (required)",
-  "email": "email (required)",
-  "password": "string (required)"
+interface UserCreate {
+  name: string;
+  email: string;
+  password: string;
 }
 ```
 
-#### UserResponse
-```json
-{
-  "id": "string",
-  "name": "string",
-  "email": "string",
-  "created_at": "datetime"
+### Resume Schema
+```typescript
+interface Resume {
+  id: string;
+  user_id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+  section_settings: SectionSetting[];
+  personal_info?: PersonalInfo;
+  education?: Education[];
+  experience?: Experience[];
+  skills?: Skill[];
+  projects?: Project[];
+  achievements?: Achievement[];
+  certifications?: Certification[];
+  // ... other sections
+}
+
+interface SectionSetting {
+  name: string;
+  visible: boolean;
+  order: number;
 }
 ```
 
-#### UserLogin
-```json
-{
-  "email": "email (required)",
-  "password": "string (required)"
+### Section Schemas
+```typescript
+interface PersonalInfo {
+  full_name: string;
+  email: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
 }
-```
 
-### Resume Schemas
-
-#### PersonalInfoSchema
-```json
-{
-  "full_name": "string (required)",
-  "email": "email (required)",
-  "phone": "string (optional)",
-  "location": "string (optional)",
-  "linkedin": "string (optional)",
-  "github": "string (optional)",
-  "portfolio": "string (optional)"
+interface Experience {
+  company: string;
+  position: string;
+  location?: string;
+  start_date?: string;
+  end_date?: string;
+  current: boolean;
+  description?: string;
+  achievements?: string[];
 }
-```
 
-#### EducationSchema
-```json
-{
-  "institution": "string (required)",
-  "degree": "string (required)",
-  "field_of_study": "string (optional)",
-  "start_date": "date (optional)",
-  "end_date": "date (optional)",
-  "gpa": "float (optional)",
-  "description": "string (optional)"
+interface Education {
+  institution: string;
+  degree: string;
+  field_of_study?: string;
+  start_date?: string;
+  end_date?: string;
+  gpa?: number;
+  description?: string;
 }
-```
 
-#### ExperienceSchema
-```json
-{
-  "company": "string (required)",
-  "position": "string (required)",
-  "location": "string (optional)",
-  "start_date": "date (optional)",
-  "end_date": "date (optional)",
-  "current": "boolean (default: false)",
-  "description": "string (optional)",
-  "achievements": "array of strings (optional)"
+interface Skill {
+  name: string;
+  category?: string;
+  proficiency?: string;
 }
-```
 
-#### SkillSchema
-```json
-{
-  "name": "string (required)",
-  "level": "string (optional)",
-  "category": "string (optional)"
-}
-```
-
-#### ProjectSchema
-```json
-{
-  "title": "string (required)",
-  "description": "string (optional)",
-  "technologies": "array of strings (optional)",
-  "start_date": "date (optional)",
-  "end_date": "date (optional)",
-  "link": "string (optional)"
-}
-```
-
-#### AchievementSchema
-```json
-{
-  "title": "string (required)",
-  "description": "string (optional)",
-  "date": "date (optional)",
-  "issuer": "string (optional)"
-}
-```
-
-#### CertificationSchema
-```json
-{
-  "name": "string (required)",
-  "issuer": "string (optional)",
-  "date": "date (optional)",
-  "credential_id": "string (optional)",
-  "url": "string (optional)"
+interface Project {
+  name: string;
+  description?: string;
+  technologies?: string[];
+  link?: string;
+  start_date?: string;
+  end_date?: string;
 }
 ```
 
 ## Error Handling
 
-The API returns standard HTTP status codes with JSON error responses:
-
+### Standard Error Response Format
 ```json
 {
-  "error": "Error description"
+  "error": "Descriptive error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "specific field error"
+  }
 }
 ```
 
-**Common Status Codes:**
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request
-- `401` - Unauthorized
-- `404` - Not Found
-- `409` - Conflict
-- `500` - Internal Server Error
-- `502` - Bad Gateway
+### HTTP Status Codes
+
+| Code | Description | Usage |
+|------|-------------|-------|
+| 200 | OK | Successful GET/PUT requests |
+| 201 | Created | Successful POST requests |
+| 400 | Bad Request | Invalid input data |
+| 401 | Unauthorized | Missing or invalid authentication |
+| 403 | Forbidden | Insufficient permissions |
+| 404 | Not Found | Resource not found |
+| 409 | Conflict | Resource already exists |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server-side errors |
+| 502 | Bad Gateway | External service errors |
+
+### Common Error Scenarios
+
+**Authentication Errors:**
+```json
+{
+  "error": "Authentication required",
+  "code": "AUTH_REQUIRED"
+}
+```
+
+**Validation Errors:**
+```json
+{
+  "error": "Invalid user data: email is required",
+  "code": "VALIDATION_ERROR",
+  "details": {
+    "email": "This field is required"
+  }
+}
+```
+
+**Rate Limiting:**
+```json
+{
+  "error": "Rate limit exceeded",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "retry_after": 60
+}
+```
 
 ## Usage Examples
 
-### Starting the Server
-```bash
-python app.py
-```
+### Complete Workflow Example
 
-The server will start on `http://localhost:5000` with debug mode enabled.
-
-### cURL Examples
-
-#### Create User
+1. **Register a new user:**
 ```bash
 curl -X POST http://localhost:5000/api/users \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "password": "password123"
+    "name": "Jane Developer",
+    "email": "jane@example.com",
+    "password": "securePass123"
   }'
 ```
 
-#### Login
+2. **Login to get access token:**
 ```bash
 curl -X POST http://localhost:5000/api/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "john@example.com",
-    "password": "password123"
+    "email": "jane@example.com",
+    "password": "securePass123"
   }'
+# Save the access_token from response
 ```
 
-#### Create Resume
+3. **Create a new resume:**
 ```bash
 curl -X POST http://localhost:5000/api/resumes \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
-    "user_id": "user-uuid",
-    "title": "My Resume",
-    "summary": "Experienced professional..."
+    "user_id": "user-uuid-from-login",
+    "title": "Senior Developer Resume",
+    "summary": "Experienced full-stack developer..."
   }'
 ```
 
-#### Get Job Recommendations
+4. **Upload and parse existing resume:**
+```bash
+curl -X POST http://localhost:5000/api/resumes/parse \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -F "file=@existing_resume.pdf"
+```
+
+5. **Add personal information:**
+```bash
+curl -X PUT http://localhost:5000/api/resumes/RESUME_ID/sections/personal_info \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "full_name": "Jane Developer",
+    "email": "jane@example.com",
+    "phone": "+1-555-0123",
+    "location": "Seattle, WA",
+    "linkedin": "https://linkedin.com/in/janedeveloper"
+  }'
+```
+
+6. **Optimize resume for a job:**
+```bash
+curl -X POST http://localhost:5000/api/resumes/RESUME_ID/optimize \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "job_description": "We are seeking a Senior Full Stack Developer with expertise in React, Python, and AWS..."
+  }'
+```
+
+7. **Get job recommendations:**
 ```bash
 curl -X POST http://localhost:5000/api/recommend \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
-    "user_id": "user-uuid"
+    "user_id": "user-uuid-here"
   }'
 ```
 
-### Postman Collection
-
-You can import the following into Postman for easy testing:
-
-1. Set base URL: `http://localhost:5000/api`
-2. Add environment variables:
-   - `base_url`: `http://localhost:5000/api`
-   - `jwt_token`: `<your-jwt-token-after-login>`
-3. Use `{{base_url}}` and `{{jwt_token}}` in your requests
-
-## Setup and Installation
-
-### Prerequisites
-- Python 3.8+
-- PostgreSQL database
-- Optional: NVIDIA API key for job recommendations
-
-### Installation Steps
-
-1. **Clone the repository:**
+8. **Export optimized resume:**
 ```bash
-git clone <repository-url>
-cd careerON
+curl -X GET http://localhost:5000/api/resumes/RESUME_ID/export-ats?format=pdf \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  --output optimized_resume.pdf
 ```
 
-2. **Install dependencies:**
-```bash
-pip install -r requirements.txt
+### JavaScript/TypeScript Examples
+
+```typescript
+// API Client setup
+const API_BASE = 'http://localhost:5000/api';
+const token = localStorage.getItem('access_token');
+
+const apiClient = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+// Create resume
+const createResume = async (resumeData: ResumeCreate) => {
+  try {
+    const response = await apiClient.post('/resumes', resumeData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating resume:', error.response?.data);
+    throw error;
+  }
+};
+
+// Optimize resume
+const optimizeResume = async (resumeId: string, jobDescription: string) => {
+  try {
+    const response = await apiClient.post(`/resumes/${resumeId}/optimize`, {
+      job_description: jobDescription
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error optimizing resume:', error.response?.data);
+    throw error;
+  }
+};
+
+// Upload and parse PDF
+const parseResume = async (pdfFile: File) => {
+  const formData = new FormData();
+  formData.append('file', pdfFile);
+  
+  try {
+    const response = await apiClient.post('/resumes/parse', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error parsing resume:', error.response?.data);
+    throw error;
+  }
+};
 ```
 
-3. **Set up environment variables:**
-```bash
-cp .env.example .env
-# Edit .env with your configuration
+### Python Examples
+
+```python
+import requests
+import json
+
+class CareerONAPI:
+    def __init__(self, base_url="http://localhost:5000/api"):
+        self.base_url = base_url
+        self.token = None
+    
+    def login(self, email: str, password: str):
+        response = requests.post(f"{self.base_url}/login", json={
+            "email": email,
+            "password": password
+        })
+        if response.status_code == 200:
+            data = response.json()
+            self.token = data["access_token"]
+            return data
+        else:
+            raise Exception(f"Login failed: {response.json()}")
+    
+    def _get_headers(self):
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}"
+        }
+    
+    def create_resume(self, user_id: str, title: str, summary: str):
+        response = requests.post(f"{self.base_url}/resumes", 
+            json={
+                "user_id": user_id,
+                "title": title,
+                "summary": summary
+            },
+            headers=self._get_headers()
+        )
+        return response.json()
+    
+    def optimize_resume(self, resume_id: str, job_description: str):
+        response = requests.post(f"{self.base_url}/resumes/{resume_id}/optimize",
+            json={"job_description": job_description},
+            headers=self._get_headers()
+        )
+        return response.json()
+    
+    def get_recommendations(self, user_id: str):
+        response = requests.post(f"{self.base_url}/recommend",
+            json={"user_id": user_id},
+            headers=self._get_headers()
+        )
+        return response.json()
+
+# Usage
+api = CareerONAPI()
+api.login("user@example.com", "password123")
+
+# Create and optimize resume
+resume = api.create_resume("user-id", "Software Engineer", "Experienced developer...")
+optimization = api.optimize_resume(resume["id"], "Python developer job description...")
+recommendations = api.get_recommendations("user-id")
 ```
 
-4. **Configure database:**
-```bash
-# Update SQLALCHEMY_DATABASE_URI in config.py
-# Create PostgreSQL database: career_navigator
-```
+---
 
-5. **Run database migrations:**
-```bash
-python -c "from app import create_app; from database.db import Base, engine; Base.metadata.create_all(bind=engine)"
-```
+**🚀 Ready to build amazing career tools? Start with our comprehensive API!**
 
-6. **Start the application:**
-```bash
-python app.py
-```
-
-The API will be available at `http://localhost:5000`.
-
-### Dependencies
-
-Key dependencies from `requirements.txt`:
-- Flask - Web framework
-- SQLAlchemy - ORM
-- Pydantic - Data validation
-- Flask-CORS - Cross-origin requests
-- Flask-Limiter - Rate limiting
-- PyJWT - JWT token handling
-- requests - HTTP client
-- pdfkit - PDF generation
-
-For complete list, see `requirements.txt`.
+For questions or support, please refer to the [GitHub repository](https://github.com/Skullybutcher/careerON) or create an issue.
