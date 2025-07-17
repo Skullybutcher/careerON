@@ -20,7 +20,7 @@ def scrape_jobs_stream(
     location: str,
     time_filter: str,
     job_type: str,
-    max_results: int = 60,
+    max_results: int = 25,
     page_size: int = 25,
     work_type: str = '',
     experience: str = ''
@@ -138,11 +138,11 @@ def get_user_input():
     job_type = input(
         "Enter job type ('full-time', 'part-time', 'contract', 'temporary', 'volunteer', 'internship' or blank): "
     ).strip().lower()
-    max_results_input = input("Enter max results [default: 100]: ").strip()
-    max_results = int(max_results_input) if max_results_input.isdigit() else 100
+    max_results_input = input("Enter max results [default: 25]: ").strip()
+    max_results = int(max_results_input) if max_results_input.isdigit() else 25
     return keywords, location, time_filter, job_type, max_results
 
-def scrape_linkedin_jobs(keywords, location, time_filter='any', job_type='', max_results=100):
+def scrape_linkedin_jobs(keywords, location, time_filter='any', job_type='', max_results=25):
     """
     Fetch job listings via the scraper_api.stream generator.
     Args:
