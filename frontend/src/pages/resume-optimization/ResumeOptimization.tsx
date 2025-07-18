@@ -106,6 +106,35 @@ export default function ResumeOptimization() {
           <h1 className="text-2xl font-bold">Optimize Resume</h1>
           <p className="text-gray-500 text-sm">Analyze your resume against a job description</p>
         </div>
+        <Button
+          className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={async () => {
+            if (!resumeId) return;
+            try {
+              const response = await fetch(`http://localhost:5000/api/resumes/${resumeId}/export-ats?format=pdf`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                }
+              });
+              if (!response.ok) throw new Error('Failed to download PDF');
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `resume_${resumeId}_ats.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              window.URL.revokeObjectURL(url);
+            } catch (error) {
+              console.error('Error exporting ATS PDF:', error);
+              alert('Failed to export ATS PDF. Please try again.');
+            }
+          }}
+        >
+          Export ATS PDF
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

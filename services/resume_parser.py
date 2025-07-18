@@ -3,7 +3,8 @@ import re
 import fitz  # PyMuPDF, you may need to run: pip install PyMuPDF
 import base64
 from dotenv import load_dotenv  # you may need to run: pip install python-dotenv
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import uuid
 import json
 from io import BytesIO
@@ -17,10 +18,13 @@ class ResumeParser:
     to local text extraction, outputting in a detailed, structured JSON format.
     """
     def __init__(self):
-        """Initializes the parser and gets the API key from environment variables."""
+        """Initializes the parser and creates the Gemini client."""
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         if not self.gemini_api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables. Please set it in your .env file.")
+        
+        # Initialize the Gemini client using the modern API pattern
+        self.client = genai.Client()
 
     def parse_from_pdf(self, pdf_file):
         """
@@ -44,9 +48,6 @@ class ResumeParser:
             else:
                 pdf_file.seek(0)
                 pdf_data = pdf_file.read()
-
-            genai.configure(api_key=self.gemini_api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
 
             # --- MODIFIED PROMPT ---
             # The instructions now strongly enforce the YYYY-MM-DD date format.
@@ -116,14 +117,33 @@ JSON Output Format:
   ]
 }
 """
-            contents = {
-                "parts": [
-                    {"mime_type": "application/pdf", "data": pdf_data},
-                    {"text": prompt}
-                ]
-            }
 
-            response = model.generate_content(contents)
+            # Convert PDF to base64 for proper file upload
+            pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
+
+            # Create proper content structure using types
+            contents = [
+                types.Part(text=prompt),
+                types.Part(inline_data=types.Blob(
+                    mime_type="application/pdf",
+                    data=pdf_base64
+                ))
+            ]
+
+            # Configure generation settings
+            cfg = types.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=4000,
+                top_p=0.9,
+                top_k=40
+            )
+
+            # Use the modern Gemini API pattern
+            response = self.client.models.generate_content(
+                model="gemini-1.5-flash", 
+                contents=contents, 
+                config=cfg
+            )
             
             raw_response_text = response.text
             json_start = raw_response_text.find('{')

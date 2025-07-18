@@ -15,6 +15,33 @@ from markdown import markdown
 from bs4 import BeautifulSoup
 
 
+STANDARD_SKILLS = {
+    "js": "javascript", "javascript": "javascript", "java script": "javascript",
+    "py": "python", "python": "python",
+    "c++": "c++", "c#": "c#",
+    "reactjs": "react", "react": "react",
+    "nodejs": "node.js", "node.js": "node.js",
+    "expressjs": "express", "express": "express",
+    "sql": "sql", "mysql": "mysql", "postgresql": "postgresql", "mongodb": "mongodb",
+    "tensorflow": "tensorflow", "keras": "keras",
+    "scikit-learn": "scikit-learn", "sklearn": "scikit-learn",
+    "nlp": "natural language processing", "natural language processing": "natural language processing",
+    "ai": "artificial intelligence", "artificial intelligence": "artificial intelligence",
+    "ml": "machine learning", "machine learning": "machine learning",
+    "html": "html", "css": "css",
+    "aws": "aws", "amazon web services": "aws",
+    "azure": "azure", "gcp": "google cloud platform", "google cloud": "google cloud platform",
+    "docker": "docker", "kubernetes": "kubernetes",
+    "git": "git", "github": "git",
+    "linux": "linux", "bash": "bash", "shell scripting": "bash",
+    "typescript": "typescript",
+    "rest api": "rest api", "restful api": "rest api",
+    "graphql": "graphql", "flask": "flask", "django": "django", "fastapi": "fastapi",
+    "spark": "spark", "hadoop": "hadoop", "bigquery": "bigquery", "airflow": "airflow",
+    "pandas": "pandas", "numpy": "numpy", "matplotlib": "matplotlib", "seaborn": "seaborn"
+}
+
+
 class ResumeOptimizer:
     def __init__(self):
         self.client = genai.Client()
@@ -27,6 +54,22 @@ class ResumeOptimizer:
             subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
             self.nlp = spacy.load("en_core_web_sm")
 
+
+    
+# Controlled vocabulary: maps variants to canonical skill names
+    
+
+    def standardize_skill(self,skill: str) -> str:
+        norm = skill.lower().strip()
+        best_match = norm
+        best_score = 0
+        for variant, canonical in STANDARD_SKILLS.items():
+            score = fuzz.ratio(variant, norm)
+            if score > best_score and score > 85:
+                best_score = score
+                best_match = canonical
+        return best_match
+
     def optimize_for_job(self, resume, job_description):
         resume_text = self._get_resume_text(resume)
 
@@ -34,8 +77,8 @@ class ResumeOptimizer:
         job_embedding = self.embedder.encode(job_description, convert_to_tensor=True)
         similarity_score = util.pytorch_cos_sim(resume_embedding, job_embedding).item()
 
-        resume_skills = self._extract_skills_with_nlp(resume_text)
-        job_skills = self._extract_skills_with_nlp(job_description)
+        resume_skills = set(self.standardize_skill(s) for s in self._extract_skills_with_nlp(resume_text))
+        job_skills = set(self.standardize_skill(s) for s in self._extract_skills_with_nlp(job_description))
         missing_skills = self._find_missing_skills(resume_skills, job_skills)
 
         suggestions = self._generate_suggestions(resume, missing_skills)
