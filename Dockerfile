@@ -10,9 +10,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libglib2.0-0 \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
-    wkhtmltopdf \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome for Selenium job scraping
