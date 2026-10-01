@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  careerON AWS Deployment
+  Provisions an EC2 instance to run the Dockerized Flask app and PostgreSQL database.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.small
+    Description: The EC2 instance type (t3.small provides 2GB RAM, perfect for ML apps).
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access.
+
+Resources:
+  # 1. Security Group (Firewall)
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP traffic to the Flask backend
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 7860
+          ToPort: 7860
+          CidrIp: 0.0.0.0/0
+
+  # 2. EC2 Instance
+  BackendServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref AppSecurityGroup
+      ImageId: ami-045ef538ace2cebbd # Ubuntu 22.04 LTS (ap-south-2)
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Install Docker and Docker Compose
+          apt-get update -y
+          apt-get install -y docker.io git
+          systemctl start docker
+          systemctl enable docker
+          curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+
+Outputs:
+  ServerPublicIP:
+    Description: Public IP of your EC2 Instance
+    Value: !GetAtt BackendServer.PublicIp
+  ApiEndpoint:
+    Description: The URL for your Flask API
+    Value: !Sub "http://${BackendServer.PublicIp}:7860"

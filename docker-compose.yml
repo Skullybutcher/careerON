@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ayush
+      POSTGRES_PASSWORD: secure_db_password
+      POSTGRES_DB: career_navigator
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    restart: always
+    ports:
+      - "7860:7860"
+    environment:
+      # These will be passed from the environment
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - SQLALCHEMY_DATABASE_URI=postgresql://ayush:secure_db_password@db:5432/career_navigator
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

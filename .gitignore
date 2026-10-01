@@ -6,3 +6,8 @@ __pycache__/config.cpython-38.pyc
 node_modules/
 .git
 recommended_jobs.json
+.venv
+test_gemini.py
+test_embed.py
+careeron-key.pem
+samconfig.toml

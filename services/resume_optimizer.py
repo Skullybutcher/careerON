@@ -211,7 +211,7 @@ class ResumeOptimizer:
             top_p=0.9,
             top_k=40
         )
-        response = self.client.models.generate_content(model="gemini-2.5-flash", contents=prompt, config=cfg)
+        response = self.client.models.generate_content(model="gemini-3.8-flash", contents=prompt, config=cfg)
         raw_output = response.text
         cleaned_output = self.clean_markdown(raw_output)
         return cleaned_output
