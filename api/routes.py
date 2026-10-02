@@ -71,7 +71,7 @@ def export_resume(resume_id):
             return response
 
         from flask import render_template
-        import pdfkit
+        from weasyprint import HTML
         import datetime
 
         db = next(get_db())
@@ -233,8 +233,8 @@ def export_resume(resume_id):
             generated_date=generated_date
         )
 
-        # Generate PDF from rendered HTML using pdfkit
-        pdf_bytes = pdfkit.from_string(rendered_html, False)
+        # Generate PDF from rendered HTML using weasyprint
+        pdf_bytes = HTML(string=rendered_html).write_pdf()
 
         # Return PDF as response with CORS headers
         from flask import Response

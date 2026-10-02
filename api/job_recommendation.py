@@ -16,7 +16,7 @@ def llm_recommend_jobs():
         return jsonify({"error": "Missing user_id"}), 400
 
     # Fetch user resumes
-    base = current_app.config.get('INTERNAL_API_BASE', 'http://localhost:5000')
+    base = current_app.config.get('INTERNAL_API_BASE', 'http://localhost:7860')
     resumes_url = f"{base}/api/users/{user_id}/resumes"
     try:
         resp = requests.get(resumes_url, timeout=5)
@@ -119,7 +119,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-API_RECOMMEND_URL = "http://localhost:5000/api/recommend"
+API_RECOMMEND_URL = "http://localhost:7860/api/recommend"
 HEADERS = {"Content-Type": "application/json"}
 
 @bp.route("/recommended_jobs", methods=["GET"])
