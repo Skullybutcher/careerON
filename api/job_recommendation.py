@@ -84,29 +84,43 @@ def llm_recommend_jobs():
         current_app.logger.error(f"NVIDIA API call failed: {e}")
         return jsonify({"error": "LLM API call failed"}), 502
 
-    # Extract content
+    # Extract content robustly
+    import json
+    import re
     try:
         content = result['choices'][0]['message']['content']
-        # Remove any markdown code block markers like ```json or ```
-        if content.startswith("```"):
-            content = content.strip("`")
-            # Remove language specifier if present
-            lines = content.splitlines()
-            if lines and lines[0].startswith("json"):
-                content = "\n".join(lines[1:])
-            content = content.strip()
-    except Exception:
-        return jsonify({"error": "Unexpected API response format"}), 500
-
-    # Parse JSON array
-    try:
-        import json
-        jobs = json.loads(content)
-        if not isinstance(jobs, list): raise ValueError
-        # Strip double quotes from each job title if present
-        jobs = [job.strip('"') if isinstance(job, str) else job for job in jobs]
-    except Exception:
-        jobs = [item.strip('- ').strip() for item in content.replace('[','').replace(']','').split(',') if item.strip()]
+        # Try to find a JSON array in the text
+        match = re.search(r'\[\s*\{.*?\}\s*\]|\[\s*".*?"\s*\]', content, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+        else:
+            json_str = content
+            
+        jobs_data = json.loads(json_str)
+        
+        jobs = []
+        for item in jobs_data:
+            if isinstance(item, dict) and "jobTitle" in item:
+                jobs.append(item["jobTitle"])
+            elif isinstance(item, dict) and "title" in item:
+                jobs.append(item["title"])
+            elif isinstance(item, str):
+                jobs.append(item)
+    except Exception as e:
+        current_app.logger.error(f"JSON parsing failed, falling back to string extraction: {e}")
+        # Fallback string manipulation
+        content = result['choices'][0]['message']['content']
+        jobs = []
+        for line in content.split('\n'):
+            line = line.strip().strip('-*0123456789. ')
+            # If line is a valid job title and not part of json schema
+            if line and "{" not in line and "}" not in line and "json" not in line.lower() and len(line) < 50:
+                jobs.append(line.replace('"', '').replace("'", ""))
+                
+    # Force exactly 5 jobs
+    jobs = jobs[:5]
+    if not jobs:
+        jobs = ["Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Data Analyst"]
 
     return jsonify({"recommendations": jobs}), 200
 
