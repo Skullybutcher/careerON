@@ -448,3 +448,11 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 **🚀 Built with ❤️ by developers, for job seekers everywhere. Happy career building!**
 
 For questions, bug reports, or feature requests, please [open an issue](https://github.com/Skullybutcher/careerON/issues) on GitHub.
+
+## Quick Demo
+
+### CareerON End-to-End Flow
+![CareerON End-to-End Flow](careeron_full_e2e_1790925596906.webp)
+
+### LinkedIn Scraper Flow
+![LinkedIn Scraper Flow](scraper_success_flow_1790935975936.webp)
