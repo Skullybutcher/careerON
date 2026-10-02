@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libnss3 \
     libfontconfig1 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome for Selenium job scraping

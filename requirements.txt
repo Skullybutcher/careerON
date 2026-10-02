@@ -22,6 +22,7 @@ python-dotenv==1.1.1
 PyPDF2==3.0.1
 PyMuPDF
 pdfkit==1.0.0
+weasyprint
 
 # Template Engine
 Jinja2==3.1.6
