@@ -142,7 +142,8 @@ def get_recommended_jobs():
     GET /recommended_jobs
     Returns the JSON content of recommended_jobs.json file
     """
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'recommended_jobs.json')
+    import tempfile
+    json_path = os.path.join(tempfile.gettempdir(), 'recommended_jobs.json')
     if not os.path.exists(json_path):
         return jsonify({"error": "recommended_jobs.json file not found"}), 404
     return send_file(json_path, mimetype='application/json')
@@ -188,7 +189,8 @@ def save_jobs(all_jobs):
     Save jobs to recommended_jobs.json file
     """
     import json
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'recommended_jobs.json')
+    import tempfile
+    json_path = os.path.join(tempfile.gettempdir(), 'recommended_jobs.json')
     with open(json_path, 'w') as f:
         json.dump(all_jobs, f, indent=2)
 
