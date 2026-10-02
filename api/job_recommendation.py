@@ -62,7 +62,7 @@ def llm_recommend_jobs():
     }
 
     payload = {
-        "model": current_app.config.get('NVIDIA_MODEL', 'meta/llama-3.2-90b-vision-instruct'),
+        "model": current_app.config.get('NVIDIA_MODEL', 'meta/llama-3.2-11b-vision-instruct'),
         "messages": [
             {"role": "system", "content": "You are a helpful AI assistant."},
             {"role": "user", "content": prompt_content}
