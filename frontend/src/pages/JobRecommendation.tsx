@@ -207,44 +207,14 @@ const JobRecommendation = () => {
 
     setLoadingJobs(true);
     try {
-      // Step 1: Get fresh recommendations from the API
-      const recommendResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/recommend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ user_id: user.id })
-      });
-
-      if (!recommendResponse.ok) {
-        throw new Error('Failed to fetch fresh recommendations');
-      }
-
-      const recommendData = await recommendResponse.json();
-      
-      // Parse and clean recommendations
-      let cleanedTitles: string[] = [];
-      if (Array.isArray(recommendData.recommendations)) {
-        cleanedTitles = recommendData.recommendations;
-      } else {
-        try {
-          cleanedTitles = JSON.parse(recommendData.recommendations);
-        } catch {
-          cleanedTitles = recommendData.recommendations
-            .split(/\r?\n|,/)
-            .map((title: string) => title.trim().replace(/^["']|["']$/g, ''))
-            .filter(Boolean);
-        }
-      }
-
-      // Step 2: Trigger the scraper with the fresh recommendations
+      // Step 2: Trigger the scraper with the existing recommendations
       const scrapingUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/run-scraper`;
       const scraperResponse = await fetch(scrapingUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ user_id: user.id, location: userLocation })
+        body: JSON.stringify({ titles: recommendations, location: userLocation })
       });
 
       if (!scraperResponse.ok) {

@@ -195,21 +195,12 @@ def save_jobs(all_jobs):
 @bp.route('/run-scraper', methods=['POST'])
 def run_scraper():
     data = request.get_json() or {}
-    user_id = data.get('user_id')
+    titles = data.get('titles')
     location = data.get('location')
-    if not user_id or not location:
-        return jsonify({'error': 'user_id and location required'}), 400
-    # Fetch recommendations
-    try:
-        rec_resp = requests.post(API_RECOMMEND_URL, headers=HEADERS,
-                                 json={'user_id': user_id}, timeout=10)
-        rec_resp.raise_for_status()
-        recs = rec_resp.json()
-    except Exception as e:
-        logger.error(f"Recommendation fetch failed: {e}")
-        return jsonify({'error': 'Failed to fetch recommendations'}), 502
+    if not titles or not location:
+        return jsonify({'error': 'titles and location required'}), 400
+    
     # Extract and scrape
-    titles = extract_job_titles(recs)
     all_jobs = scrape_all_titles(titles, location)
     # Overwrite JSON file
     save_jobs(all_jobs)
