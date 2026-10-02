@@ -111,7 +111,7 @@ export default function ResumeOptimization() {
           onClick={async () => {
             if (!resumeId) return;
             try {
-              const response = await fetch(`http://localhost:5000/api/resumes/${resumeId}/export-ats?format=pdf`, {
+              const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/resumes/${resumeId}/export-ats?format=pdf`, {
                 method: 'GET',
                 headers: {
                   'Authorization': `Bearer ${localStorage.getItem('token') || ''}`

@@ -56,7 +56,7 @@ const JobRecommendation = () => {
     if (!user) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${user.id}/resumes`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/users/${user.id}/resumes`);
       if (!response.ok) {
         throw new Error('Failed to fetch user resumes');
       }
@@ -99,7 +99,7 @@ const JobRecommendation = () => {
     if (!user) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/user/profile`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/user/profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -139,7 +139,7 @@ const JobRecommendation = () => {
       if (!user) {
         throw new Error('User not authenticated');
       }
-      const response = await fetch(`http://localhost:5000/api/recommend`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/recommend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -208,7 +208,7 @@ const JobRecommendation = () => {
     setLoadingJobs(true);
     try {
       // Step 1: Get fresh recommendations from the API
-      const recommendResponse = await fetch('http://localhost:5000/api/recommend', {
+      const recommendResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/recommend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -238,7 +238,7 @@ const JobRecommendation = () => {
       }
 
       // Step 2: Trigger the scraper with the fresh recommendations
-      const scrapingUrl = `http://localhost:5000/api/run-scraper`;
+      const scrapingUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/run-scraper`;
       const scraperResponse = await fetch(scrapingUrl, {
         method: 'POST',
         headers: {
@@ -252,7 +252,7 @@ const JobRecommendation = () => {
       }
 
       // Step 3: Load the generated recommended_jobs.json file
-      const jobsResponse = await fetch('http://localhost:5000/api/recommended_jobs.json');
+      const jobsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/recommended_jobs.json`);
       
       if (!jobsResponse.ok) {
         throw new Error('Failed to load job listings');
