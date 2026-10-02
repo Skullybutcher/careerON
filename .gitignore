@@ -11,3 +11,5 @@ test_gemini.py
 test_embed.py
 careeron-key.pem
 samconfig.toml
+logs_100002813862.zip
+test_nvidia.py
